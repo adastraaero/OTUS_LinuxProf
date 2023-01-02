@@ -216,6 +216,468 @@ Versions:         1.0.0
 Downloads:        0
 ```
 
+</details>
+
+## Lesson2
+
+<details>
+
+### Задачи
+
+* добавить в Vagrantfile еще дисков
+* собрать R0/R5/R10 на выбор
+* Создание конфигурационного файла mdadm.conf
+* Сломать/починить RAID
+* Создать GPT раздел, пять партиций и смонтировать их на диск
+⭐ Vagrantfile, который сразу собирает систему с подключенным рейдом и смонтированными разделами.
+
+
+### добавить в Vagrantfile еще дисков
+
+добавим 5ый диск 
+
+```
+MACHINES = {
+  :otuslinux => {
+        :box_name => "centos/7",
+        :ip_addr => '192.168.11.101',
+        :disks => {
+                :sata1 => {
+                        :dfile => './sata1.vdi',
+                        :size => 250,
+                        :port => 1
+                },
+                :sata2 => {
+                        :dfile => './sata2.vdi',
+                        :size => 250, # Megabytes
+                        :port => 2
+                },
+                :sata3 => {
+                        :dfile => './sata3.vdi',
+                        :size => 250,
+                        :port => 3
+                },
+                :sata4 => {
+                        :dfile => './sata4.vdi',
+                        :size => 250, # Megabytes
+                        :port => 4
+                },
+                :sata5 => {
+                        :dfile => './sata5.vdi',
+                        :size => 250, # Megabytesvav
+                        :port => 5
+                }
+
+        }
+
+
+  },
+}
+
+```
+
+Просмотр наличия блочных устройств
+
+```
+[vagrant@localhost ~]$ sudo lsblk
+NAME   MAJ:MIN RM  SIZE RO TYPE MOUNTPOINT
+sda      8:0    0  250M  0 disk 
+sdb      8:16   0  250M  0 disk 
+sdc      8:32   0  250M  0 disk 
+sdd      8:48   0  250M  0 disk 
+sde      8:64   0  250M  0 disk 
+sdf      8:80   0   40G  0 disk 
+└─sdf1   8:81   0   40G  0 part 
+```
+
+### собрать R0/R5/R10 на выбор
+
+Занулим суперблоки:
+
+```
+sudo mdadm --zero-superblock --force /dev/sd{b,c,d,e,f}
+[vagrant@localhost ~]$ sudo mdadm --zero-superblock --force /dev/sd{b,c,d,e,a}
+mdadm: Unrecognised md component device - /dev/sdb
+mdadm: Unrecognised md component device - /dev/sdc
+mdadm: Unrecognised md component device - /dev/sdd
+mdadm: Unrecognised md component device - /dev/sde
+mdadm: Unrecognised md component device - /dev/sda
+```
+Создаем рейд 6
+
+```
+[vagrant@localhost ~]$ sudo mdadm --create --verbose /dev/md0 -l 6 -n 5 /dev/sd{b,c,d,e,a}
+mdadm: layout defaults to left-symmetric
+mdadm: layout defaults to left-symmetric
+mdadm: chunk size defaults to 512K
+mdadm: size set to 253952K
+mdadm: Defaulting to version 1.2 metadata
+mdadm: array /dev/md0 started.
+```
+
+Проверим что RAID собралсā нормалþно:
+
+```
+[vagrant@localhost ~]$ cat /proc/mdstat
+Personalities : [raid6] [raid5] [raid4] 
+md0 : active raid6 sda[4] sde[3] sdd[2] sdc[1] sdb[0]
+      761856 blocks super 1.2 level 6, 512k chunk, algorithm 2 [5/5] [UUUUU]
+
+```
+Проверяем характеристики рейда:
+
+```
+vagrant@localhost ~]$ sudo mdadm -D /dev/md0
+/dev/md0:
+           Version : 1.2
+     Creation Time : Sun Jan  1 14:35:34 2023
+        Raid Level : raid6
+        Array Size : 761856 (744.00 MiB 780.14 MB)
+     Used Dev Size : 253952 (248.00 MiB 260.05 MB)
+      Raid Devices : 5
+     Total Devices : 5
+       Persistence : Superblock is persistent
+
+       Update Time : Sun Jan  1 14:35:40 2023
+             State : clean 
+    Active Devices : 5
+   Working Devices : 5
+    Failed Devices : 0
+     Spare Devices : 0
+
+            Layout : left-symmetric
+        Chunk Size : 512K
+
+Consistency Policy : resync
+
+              Name : localhost.localdomain:0  (local to host localhost.localdomain)
+              UUID : cc00d5b1:f34e140f:a876a3fc:8759d932
+            Events : 17
+
+    Number   Major   Minor   RaidDevice State
+       0       8       16        0      active sync   /dev/sdb
+       1       8       32        1      active sync   /dev/sdc
+       2       8       48        2      active sync   /dev/sdd
+       3       8       64        3      active sync   /dev/sde
+       4       8        0        4      active sync   /dev/sda
+```
+
+### Создание конфигурационного файла mdadm.conf
+
+```
+mkdir /etc/mdadm
+echo "DEVICE partitions" > /etc/mdadm/mdadm.conf
+mdadm --detail --scan --verbose | awk '/ARRAY/ {print}' >> /etc/mdadm/mdadm.conf
+```
+
+Проверяем содержимое mdadm.conf:
+
+```
+[root@localhost vagrant]# cat /etc/mdadm/mdadm.conf 
+DEVICE partitions
+ARRAY /dev/md0 level=raid6 num-devices=5 metadata=1.2 name=localhost.localdomain:0 UUID=cc00d5b1:f34e140f:a876a3fc:8759d932
+```
+
+### Сломать/починить RAID
+
+Ломаю массив, искуственно переводя в статус "fail" один из дисков, проверяю статус массива:
+
+```
+mdadm /dev/md0 --fail /dev/sdc
+```
+
+```
+[root@localhost vagrant]# cat /proc/mdstat
+Personalities : [raid6] [raid5] [raid4] 
+md0 : active raid6 sda[4] sde[3] sdd[2] sdc[1](F) sdb[0]
+      761856 blocks super 1.2 level 6, 512k chunk, algorithm 2 [5/4] [U_UUU]
+```
+
+Восстанавливаю рейд, сначала удалив диск из массива, а затем "вставив" его же назад:
+
+```
+[root@localhost vagrant]# mdadm --remove /dev/md0 /dev/sdc
+mdadm: hot removed /dev/sdc from /dev/md0
+mdadm --add /dev/md0 /dev/sdc
+```
+
+После смотрим на дебаг:
+
+```
+$ watch --interval=1 cat /proc/mdstat
+```
+
+### Создать GPT раздел, пять партиций и смонтировать их на диск
+
+Создаем раздел GPT на RAID
+```
+parted -s /dev/md0 mklabel gpt
+```
+Создаем партиции:
+```
+parted /dev/md0 mkpart primary ext4 0% 20%
+parted /dev/md0 mkpart primary ext4 20% 40%
+parted /dev/md0 mkpart primary ext4 40% 60%
+parted /dev/md0 mkpart primary ext4 60% 80%
+parted /dev/md0 mkpart primary ext4 80% 100%
+```
+
+```
+[root@localhost raid]# lsblk
+NAME      MAJ:MIN RM   SIZE RO TYPE  MOUNTPOINT
+sda         8:0    0   250M  0 disk  
+└─md0       9:0    0   744M  0 raid6 
+  ├─md0p1 259:0    0   147M  0 md    /raid/part1
+  ├─md0p2 259:1    0 148.5M  0 md    /raid/part2
+  ├─md0p3 259:2    0   150M  0 md    /raid/part3
+  ├─md0p4 259:3    0 148.5M  0 md    /raid/part4
+  └─md0p5 259:4    0   147M  0 md    /raid/part5
+sdb         8:16   0   250M  0 disk  
+└─md0       9:0    0   744M  0 raid6 
+  ├─md0p1 259:0    0   147M  0 md    /raid/part1
+  ├─md0p2 259:1    0 148.5M  0 md    /raid/part2
+  ├─md0p3 259:2    0   150M  0 md    /raid/part3
+  ├─md0p4 259:3    0 148.5M  0 md    /raid/part4
+  └─md0p5 259:4    0   147M  0 md    /raid/part5
+sdc         8:32   0   250M  0 disk  
+└─md0       9:0    0   744M  0 raid6 
+  ├─md0p1 259:0    0   147M  0 md    /raid/part1
+  ├─md0p2 259:1    0 148.5M  0 md    /raid/part2
+  ├─md0p3 259:2    0   150M  0 md    /raid/part3
+  ├─md0p4 259:3    0 148.5M  0 md    /raid/part4
+  └─md0p5 259:4    0   147M  0 md    /raid/part5
+sdd         8:48   0   250M  0 disk  
+└─md0       9:0    0   744M  0 raid6 
+  ├─md0p1 259:0    0   147M  0 md    /raid/part1
+  ├─md0p2 259:1    0 148.5M  0 md    /raid/part2
+  ├─md0p3 259:2    0   150M  0 md    /raid/part3
+  ├─md0p4 259:3    0 148.5M  0 md    /raid/part4
+  └─md0p5 259:4    0   147M  0 md    /raid/part5
+sde         8:64   0   250M  0 disk  
+└─md0       9:0    0   744M  0 raid6 
+  ├─md0p1 259:0    0   147M  0 md    /raid/part1
+  ├─md0p2 259:1    0 148.5M  0 md    /raid/part2
+  ├─md0p3 259:2    0   150M  0 md    /raid/part3
+  ├─md0p4 259:3    0 148.5M  0 md    /raid/part4
+  └─md0p5 259:4    0   147M  0 md    /raid/part5
+sdf         8:80   0    40G  0 disk  
+└─sdf1      8:81   0    40G  0 part  /
+```
+
+
+Делаем отдельный файл, который говорит, что нужно собрать рейд:
+
+```
+cat setup.sh 
+#!/bin/env bash
+yum update -y
+yum install -y mdadm smartmontools hdparm gdisk
+mdadm --zero-superblock --force /dev/sd{b,c,d,e,f}
+mdadm --create --verbose /dev/md0 -l 6 -n 5 /dev/sd{b,c,d,e,f}
+mkdir /etc/mdadm
+echo "DEVICE partitions" > /etc/mdadm/mdadm.conf
+mdadm --detail --scan --verbose | awk '/ARRAY/ {print}' >> /etc/mdadm/mdadm.conf
+parted -s /dev/md0 mklabel gpt
+parted /dev/md0 mkpart primary ext4 0% 20%
+parted /dev/md0 mkpart primary ext4 20% 40%
+parted /dev/md0 mkpart primary ext4 40% 60%
+parted /dev/md0 mkpart primary ext4 60% 80%
+parted /dev/md0 mkpart primary ext4 80% 100%
+for i in $(seq 1 5); do sudo mkfs.ext4 /dev/md0p$i; done
+mkdir -p /raid/part{1,2,3,4,5}
+for i in $(seq 1 5); do mount /dev/md0p$i /raid/part$i; done
+```
+
+Добавляем инструкцию в Vagrantfile:
+
+```
+box.vm.provision "shell", path: "setup.sh"
+```
+
+Выполняем reload:
+
+```
+/OTUS_Linux_Prof/Lesson2/otus-linux$ vagrant reload --provision
+```
+
+### ⭐ Vagrantfile, который сразу собирает систему с подключенным рейдом и смонтированными разделами.
+
+Отредактируем Vagrantfile, укажем инструкцию для запуска скрипта и сам скрипт, который соберет 10 рейд:
+
+```
+# -*- mode: ruby -*-
+# vim: set ft=ruby :
+
+MACHINES = {
+  :otuslinux => {
+        :box_name => "centos/7",
+        :ip_addr => '192.168.11.101',
+	:disks => {
+		:sata1 => {
+			:dfile => './sata1.vdi',
+			:size => 250,
+			:port => 1
+		},
+		:sata2 => {
+                        :dfile => './sata2.vdi',
+                        :size => 250,
+			:port => 2
+		},
+                :sata3 => {
+                        :dfile => './sata3.vdi',
+                        :size => 250,
+                        :port => 3
+                },
+                :sata4 => {
+                        :dfile => './sata4.vdi',
+                        :size => 250,
+                        :port => 4
+                },
+                :sata5 => {
+                        :dfile => './sata5.vdi',
+                        :size => 250,
+                        :port => 5
+                }
+
+	}
+  },
+}
+
+Vagrant.configure("2") do |config|
+
+  MACHINES.each do |boxname, boxconfig|
+
+      config.vm.define boxname do |box|
+
+          box.vm.box = boxconfig[:box_name]
+          box.vm.host_name = boxname.to_s
+
+          box.vm.network "private_network", ip: boxconfig[:ip_addr]
+
+          box.vm.provider :virtualbox do |vb|
+            	  vb.customize ["modifyvm", :id, "--memory", "1024"]
+                  needsController = false
+		  boxconfig[:disks].each do |dname, dconf|
+			  unless File.exist?(dconf[:dfile])
+				vb.customize ['createhd', '--filename', dconf[:dfile], '--variant', 'Fixed', '--size', dconf[:size]]
+                                needsController =  true
+                          end
+
+		  end
+                  if needsController == true
+                     vb.customize ["storagectl", :id, "--name", "SATA", "--add", "sata" ]
+                     boxconfig[:disks].each do |dname, dconf|
+                         vb.customize ['storageattach', :id,  '--storagectl', 'SATA', '--port', dconf[:port], '--device', 0, '--type', 'hdd', '--medium', dconf[:dfile]]
+                     end
+                  end
+          end
+
+ 	  box.vm.provision "shell", path: "setup.sh"
+      end
+  end
+end
+
+```
+
+```
+mity@ubuntu:~/Documents/OTUS_Linux_Prof/Lesson2/otus-linux$ cat setup.sh 
+#!/bin/env bash
+yum update -y
+yum install -y mdadm smartmontools hdparm gdisk
+mdadm --zero-superblock --force /dev/sd{b,c,d,e,f}
+mdadm --create --verbose /dev/md0 -l 10 -n 5 /dev/sd{b,c,d,e,f}
+mkdir /etc/mdadm
+echo "DEVICE partitions" > /etc/mdadm/mdadm.conf
+mdadm --detail --scan --verbose | awk '/ARRAY/ {print}' >> /etc/mdadm/mdadm.conf
+parted -s /dev/md0 mklabel gpt
+parted /dev/md0 mkpart primary ext4 0% 20%
+parted /dev/md0 mkpart primary ext4 20% 40%
+parted /dev/md0 mkpart primary ext4 40% 60%
+parted /dev/md0 mkpart primary ext4 60% 80%
+parted /dev/md0 mkpart primary ext4 80% 100%
+for i in $(seq 1 5); do sudo mkfs.ext4 /dev/md0p$i; done
+mkdir -p /raid/part{1,2,3,4,5}
+for i in $(seq 1 5); do mount /dev/md0p$i /raid/part$i; done
+
+```
+
+Проверим:
+
+```
+[vagrant@localhost ~]$ lsblk 
+NAME      MAJ:MIN RM   SIZE RO TYPE   MOUNTPOINT
+sda         8:0    0    40G  0 disk   
+└─sda1      8:1    0    40G  0 part   /
+sdb         8:16   0   250M  0 disk   
+└─md0       9:0    0   620M  0 raid10 
+  ├─md0p1 259:0    0 122.5M  0 md     /raid/part1
+  ├─md0p2 259:1    0 122.5M  0 md     /raid/part2
+  ├─md0p3 259:2    0   125M  0 md     /raid/part3
+  ├─md0p4 259:3    0 122.5M  0 md     /raid/part4
+  └─md0p5 259:4    0 122.5M  0 md     /raid/part5
+sdc         8:32   0   250M  0 disk   
+└─md0       9:0    0   620M  0 raid10 
+  ├─md0p1 259:0    0 122.5M  0 md     /raid/part1
+  ├─md0p2 259:1    0 122.5M  0 md     /raid/part2
+  ├─md0p3 259:2    0   125M  0 md     /raid/part3
+  ├─md0p4 259:3    0 122.5M  0 md     /raid/part4
+  └─md0p5 259:4    0 122.5M  0 md     /raid/part5
+sdd         8:48   0   250M  0 disk   
+└─md0       9:0    0   620M  0 raid10 
+  ├─md0p1 259:0    0 122.5M  0 md     /raid/part1
+  ├─md0p2 259:1    0 122.5M  0 md     /raid/part2
+  ├─md0p3 259:2    0   125M  0 md     /raid/part3
+  ├─md0p4 259:3    0 122.5M  0 md     /raid/part4
+  └─md0p5 259:4    0 122.5M  0 md     /raid/part5
+sde         8:64   0   250M  0 disk   
+└─md0       9:0    0   620M  0 raid10 
+  ├─md0p1 259:0    0 122.5M  0 md     /raid/part1
+  ├─md0p2 259:1    0 122.5M  0 md     /raid/part2
+  ├─md0p3 259:2    0   125M  0 md     /raid/part3
+  ├─md0p4 259:3    0 122.5M  0 md     /raid/part4
+  └─md0p5 259:4    0 122.5M  0 md     /raid/part5
+sdf         8:80   0   250M  0 disk   
+└─md0       9:0    0   620M  0 raid10 
+  ├─md0p1 259:0    0 122.5M  0 md     /raid/part1
+  ├─md0p2 259:1    0 122.5M  0 md     /raid/part2
+  ├─md0p3 259:2    0   125M  0 md     /raid/part3
+  ├─md0p4 259:3    0 122.5M  0 md     /raid/part4
+  └─md0p5 259:4    0 122.5M  0 md     /raid/part5
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
