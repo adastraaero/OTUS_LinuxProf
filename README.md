@@ -1505,8 +1505,384 @@ ZFSpool   118K   880M  25.5K  /opt
 ```
 </details>
 
+## Lesson5
+
+<details>
+
+### Задание:
+
+Определить алгоритм с наилучшим сжатием
+Определить какие алгоритмы сжатия поддерживает zfs (gzip, zle, lzjb, lz4);
+Создать 4 файловых системы на каждой применить свой алгоритм сжатия;
+Для сжатия использовать либо текстовый файл, либо группу файлов:
+Определить настройки пула
+С помощью команды zfs import собрать pool ZFS;
+Командами zfs определить настройки:
+    - размер хранилища;
+    - тип pool;
+    - значение recordsize;
+    - какое сжатие используется;
+    - какая контрольная сумма используется.
+Работа со снапшотами скопировать файл из удаленной директории.   https://drive.google.com/file/d/1gH8gCL9y7Nd5Ti3IRmplZPF1XjzxeRAG/view?usp=sharing 
+восстановить файл локально. zfs receive
+найти зашифрованное сообщение в файле secret_message.
+
+Для конфигурации сервера (установки и настройки ZFS) необходимо написать отдельный Bash-скрипт и добавить его в Vagrantfile
+
+#### Определение алгоритма с наилучшим сжатием
+
+Смотрим список всех дисков, которые есть в виртуальной машине:
+
+```
+root@localhost ~]# lsblk
+NAME   MAJ:MIN RM  SIZE RO TYPE MOUNTPOINT
+sda      8:0    0  512M  0 disk 
+sdb      8:16   0  512M  0 disk 
+sdc      8:32   0  512M  0 disk 
+sdd      8:48   0  512M  0 disk 
+sde      8:64   0  512M  0 disk 
+sdf      8:80   0  512M  0 disk 
+sdg      8:96   0  512M  0 disk 
+sdh      8:112  0  512M  0 disk 
+sdi      8:128  0   40G  0 disk 
+└─sdi1   8:129  0   40G  0 part /
+```
+
+Создаём 4 пула из двух дисков в режиме RAID 1:
+
+```
+[root@localhost ~]# zpool create otus1 mirror /dev/sdb /dev/sdc
+[root@localhost ~]# zpool create otus2 mirror /dev/sdd /dev/sde
+[root@localhost ~]# zpool create otus3 mirror /dev/sdf /dev/sdg
+[root@localhost ~]# zpool create otus4 mirror /dev/sdh /dev/sda
+```
+
+Смотрим информацию о пулах:
+
+```
+[root@localhost ~]# zpool list
+NAME    SIZE  ALLOC   FREE  CKPOINT  EXPANDSZ   FRAG    CAP  DEDUP    HEALTH  ALTROOT
+otus1   480M  91.5K   480M        -         -     0%     0%  1.00x    ONLINE  -
+otus2   480M  91.5K   480M        -         -     0%     0%  1.00x    ONLINE  -
+otus3   480M  91.5K   480M        -         -     0%     0%  1.00x    ONLINE  -
+otus4   480M  91.5K   480M        -         -     0%     0%  1.00x    ONLINE  -
+```
+
+Команда zpool status показывает информацию о каждом диске, состоянии сканирования и об
+ошибках чтения, записи и совпадения хэш-сумм. Команда zpool list показывает информацию о размере пула,
+количеству занятого и свободного места, дедупликации и т.д.
+
+Добавим разные алгоритмы сжатия в каждую файловую систему:
+
+```
+[root@localhost ~]# zfs set compression=lzjb otus1
+[root@localhost ~]# zfs set compression=lz4 otus2
+[root@localhost ~]# zfs set compression=gzip-9 otus3
+[root@localhost ~]# zfs set compression=zle otus4
+```
+Проверим, что все файловые системы имеют разные методы сжатия:
+```
+[root@localhost ~]# zfs get all | grep compression
+otus1  compression           lzjb                   local
+otus2  compression           lz4                    local
+otus3  compression           gzip-9                 local
+otus4  compression           zle                    local
+```
+
+Сжатие файлов будет работать только с файлами, которые были добавлены после включение настройки сжатия. 
+Скачаем один и тот же текстовый файл во все пулы: 
+
+```
+[root@localhost ~]# for i in {1..4}; do wget -P /otus$i https://gutenberg.org/cache/epub/2600/pg2600.converter.log; done
+--2023-01-07 17:43:50--  https://gutenberg.org/cache/epub/2600/pg2600.converter.log
+Resolving gutenberg.org (gutenberg.org)... 152.19.134.47, 2610:28:3090:3000:0:bad:cafe:47
+Connecting to gutenberg.org (gutenberg.org)|152.19.134.47|:443... connected.
+HTTP request sent, awaiting response... 200 OK
+Length: 40894017 (39M) [text/plain]
+Saving to: ‘/otus1/pg2600.converter.log’
+
+100%[==================================================================================================================================================================================================================>] 40,894,017   480KB/s   in 1m 41s 
+
+2023-01-07 17:45:33 (396 KB/s) - ‘/otus1/pg2600.converter.log’ saved [40894017/40894017]
+
+--2023-01-07 17:45:33--  https://gutenberg.org/cache/epub/2600/pg2600.converter.log
+Resolving gutenberg.org (gutenberg.org)... 152.19.134.47, 2610:28:3090:3000:0:bad:cafe:47
+Connecting to gutenberg.org (gutenberg.org)|152.19.134.47|:443... connected.
+HTTP request sent, awaiting response... 200 OK
+Length: 40894017 (39M) [text/plain]
+Saving to: ‘/otus2/pg2600.converter.log’
+
+100%[==================================================================================================================================================================================================================>] 40,894,017   897KB/s   in 74s    
+
+2023-01-07 17:46:49 (542 KB/s) - ‘/otus2/pg2600.converter.log’ saved [40894017/40894017]
+
+--2023-01-07 17:46:49--  https://gutenberg.org/cache/epub/2600/pg2600.converter.log
+Resolving gutenberg.org (gutenberg.org)... 152.19.134.47, 2610:28:3090:3000:0:bad:cafe:47
+Connecting to gutenberg.org (gutenberg.org)|152.19.134.47|:443... connected.
+HTTP request sent, awaiting response... 200 OK
+Length: 40894017 (39M) [text/plain]
+Saving to: ‘/otus3/pg2600.converter.log’
+
+100%[==================================================================================================================================================================================================================>] 40,894,017   339KB/s   in 1m 42s 
+
+2023-01-07 17:48:32 (393 KB/s) - ‘/otus3/pg2600.converter.log’ saved [40894017/40894017]
+
+--2023-01-07 17:48:32--  https://gutenberg.org/cache/epub/2600/pg2600.converter.log
+Resolving gutenberg.org (gutenberg.org)... 152.19.134.47, 2610:28:3090:3000:0:bad:cafe:47
+Connecting to gutenberg.org (gutenberg.org)|152.19.134.47|:443... connected.
+HTTP request sent, awaiting response... 200 OK
+Length: 40894017 (39M) [text/plain]
+Saving to: ‘/otus4/pg2600.converter.log’
+
+100%[==================================================================================================================================================================================================================>] 40,894,017   881KB/s   in 93s    
+
+2023-01-07 17:50:07 (429 KB/s) - ‘/otus4/pg2600.converter.log’ saved [40894017/40894017]
+```
+
+Проверим, что файл был скачан во все пулы:
+
+```
+[root@localhost ~]# ls -l /otus*
+/otus1:
+total 22037
+-rw-r--r--. 1 root root 40894017 Jan  2 09:19 pg2600.converter.log
+
+/otus2:
+total 17981
+-rw-r--r--. 1 root root 40894017 Jan  2 09:19 pg2600.converter.log
+
+/otus3:
+total 10953
+-rw-r--r--. 1 root root 40894017 Jan  2 09:19 pg2600.converter.log
+
+/otus4:
+total 39964
+-rw-r--r--. 1 root root 40894017 Jan  2 09:19 pg2600.converter.log
+```
+Уже на этом этапе видно, что самый оптимальный метод сжатия у нас используется в пуле otus3(gzip-9).
 
 
+Проверим, сколько места занимает один и тот же файл в разных пулах и проверим степень сжатия файлов:
+```
+[root@localhost ~]# zfs list
+NAME    USED  AVAIL     REFER  MOUNTPOINT
+otus1  21.6M   330M     21.5M  /otus1
+otus2  17.7M   334M     17.6M  /otus2
+otus3  10.8M   341M     10.7M  /otus3
+otus4  39.1M   313M     39.1M  /otus4
+```
+
+### Определение настроек пула
+
+Скачиваем архив в домашний каталог: 
+
+```
+wget -O archive.tar.gz 'https://docs.google.com/uc?export=download&id=1KRBNW33QWqbvbVHa3hLJivOAt60yukkg'
+```
+
+Разархивируем его:
+```
+[vagrant@localhost ~]$ tar -xzvf archive.tar.gz
+zpoolexport/
+zpoolexport/filea
+zpoolexport/fileb
+```
+
+Проверим, возможно ли импортировать данный каталог в пул:
+
+```
+[root@localhost vagrant]# zpool import -d zpoolexport/
+   pool: otus
+     id: 6554193320433390805
+  state: ONLINE
+ action: The pool can be imported using its name or numeric identifier.
+ config:
+
+	otus                                 ONLINE
+	  mirror-0                           ONLINE
+	    /home/vagrant/zpoolexport/filea  ONLINE
+	    /home/vagrant/zpoolexport/fileb  ONLINE
+```
+
+ Данный вывод показывает нам имя пула, тип raid и его состав.   
+
+Сделаем импорт данного пула к нам в ОС:
+
+```
+[root@localhost vagrant]# zpool import -d zpoolexport/ otus
+```
+
+```
+[root@localhost vagrant]# zpool status
+  pool: otus
+ state: ONLINE
+  scan: none requested
+config:
+
+	NAME                                 STATE     READ WRITE CKSUM
+	otus                                 ONLINE       0     0     0
+	  mirror-0                           ONLINE       0     0     0
+	    /home/vagrant/zpoolexport/filea  ONLINE       0     0     0
+	    /home/vagrant/zpoolexport/fileb  ONLINE       0     0     0
+
+errors: No known data errors
+```
+
+Запрос сразу всех параметров пула:
+
+```
+[root@localhost vagrant]# zfs get all otus
+NAME  PROPERTY              VALUE                  SOURCE
+otus  type                  filesystem             -
+otus  creation              Fri May 15  4:00 2020  -
+otus  used                  2.04M                  -
+otus  available             350M                   -
+otus  referenced            24K                    -
+otus  compressratio         1.00x                  -
+otus  mounted               yes                    -
+otus  quota                 none                   default
+otus  reservation           none                   default
+otus  recordsize            128K                   local
+otus  mountpoint            /otus                  default
+otus  sharenfs              off                    default
+otus  checksum              sha256                 local
+otus  compression           zle                    local
+otus  atime                 on                     default
+otus  devices               on                     default
+otus  exec                  on                     default
+otus  setuid                on                     default
+otus  readonly              off                    default
+otus  zoned                 off                    default
+otus  snapdir               hidden                 default
+otus  aclinherit            restricted             default
+otus  createtxg             1                      -
+otus  canmount              on                     default
+otus  xattr                 on                     default
+otus  copies                1                      default
+otus  version               5                      -
+otus  utf8only              off                    -
+otus  normalization         none                   -
+otus  casesensitivity       sensitive              -
+otus  vscan                 off                    default
+otus  nbmand                off                    default
+otus  sharesmb              off                    default
+otus  refquota              none                   default
+otus  refreservation        none                   default
+otus  guid                  14592242904030363272   -
+otus  primarycache          all                    default
+otus  secondarycache        all                    default
+otus  usedbysnapshots       0B                     -
+otus  usedbydataset         24K                    -
+otus  usedbychildren        2.01M                  -
+otus  usedbyrefreservation  0B                     -
+otus  logbias               latency                default
+otus  objsetid              54                     -
+otus  dedup                 off                    default
+otus  mlslabel              none                   default
+otus  sync                  standard               default
+otus  dnodesize             legacy                 default
+otus  refcompressratio      1.00x                  -
+otus  written               24K                    -
+otus  logicalused           1020K                  -
+otus  logicalreferenced     12K                    -
+otus  volmode               default                default
+otus  filesystem_limit      none                   default
+otus  snapshot_limit        none                   default
+otus  filesystem_count      none                   default
+otus  snapshot_count        none                   default
+otus  snapdev               hidden                 default
+otus  acltype               off                    default
+otus  context               none                   default
+otus  fscontext             none                   default
+otus  defcontext            none                   default
+otus  rootcontext           none                   default
+otus  relatime              off                    default
+otus  redundant_metadata    all                    default
+otus  overlay               off                    default
+otus  encryption            off                    default
+otus  keylocation           none                   default
+otus  keyformat             none                   default
+otus  pbkdf2iters           0                      default
+otus  special_small_blocks  0                      default
+```
+
+размер хранилища: 480M 
+тип pool: mirror-0 
+значение recordsize: 128K
+какое сжатие используется: zle
+какая контрольная сумма используется: sha256 
+
+
+### Найти сообщение от преподавателей.
+
+Скачаем файл, указанный в задании:
+
+```
+[root@localhost vagrant]# wget -O otus_task2.file 'https://docs.google.com/uc?export=download&id=1gH8gCL9y7Nd5Ti3IRmplZPF1XjzxeRAG'
+--2023-01-07 18:57:25--  https://docs.google.com/uc?export=download&id=1gH8gCL9y7Nd5Ti3IRmplZPF1XjzxeRAG
+Resolving docs.google.com (docs.google.com)... 74.125.131.194, 2a00:1450:4010:c0b::c2
+Connecting to docs.google.com (docs.google.com)|74.125.131.194|:443... connected.
+HTTP request sent, awaiting response... 303 See Other
+Location: https://doc-00-bo-docs.googleusercontent.com/docs/securesc/ha0ro937gcuc7l7deffksulhg5h7mbp1/33hpevo8kc2u2bibiqbqs0rq9sis9k2n/1673117775000/16189157874053420687/*/1gH8gCL9y7Nd5Ti3IRmplZPF1XjzxeRAG?e=download&uuid=9085d409-f631-4e5e-935e-fb6cfba007e6 [following]
+Warning: wildcards not supported in HTTP.
+--2023-01-07 18:57:26--  https://doc-00-bo-docs.googleusercontent.com/docs/securesc/ha0ro937gcuc7l7deffksulhg5h7mbp1/33hpevo8kc2u2bibiqbqs0rq9sis9k2n/1673117775000/16189157874053420687/*/1gH8gCL9y7Nd5Ti3IRmplZPF1XjzxeRAG?e=download&uuid=9085d409-f631-4e5e-935e-fb6cfba007e6
+Resolving doc-00-bo-docs.googleusercontent.com (doc-00-bo-docs.googleusercontent.com)... 142.250.150.132, 2a00:1450:4010:c03::84
+Connecting to doc-00-bo-docs.googleusercontent.com (doc-00-bo-docs.googleusercontent.com)|142.250.150.132|:443... connected.
+HTTP request sent, awaiting response... 200 OK
+Length: 5432736 (5.2M) [application/octet-stream]
+Saving to: ‘otus_task2.file’
+
+100%[==================================================================================================================================================================================================================>] 5,432,736   20.5MB/s   in 0.3s   
+
+2023-01-07 18:57:27 (20.5 MB/s) - ‘otus_task2.file’ saved [5432736/5432736]
+
+```
+
+Восстановим файловую систему из снапшота:
+
+```
+[root@localhost vagrant]# zfs receive otus/test@today < otus_task2.file
+```
+
+Далее, ищем в каталоге /otus/test файл с именем “secret_message”:
+
+```
+[root@localhost vagrant]# find /otus/test -name "secret_message"
+/otus/test/task1/file_mess/secret_message
+[root@localhost vagrant]# cat /otus/test/task1/file_mess/secret_message
+```
+
+Зашифрованное сообщение - это ссылка -  https://github.com/sindresorhus/awesome
+
+
+### Для конфигурации сервера (установки и настройки ZFS) необходимо написать отдельный Bash-скрипт и добавить его в Vagrantfile
+
+```
+cat setup.sh 
+#!/bin/env bash
+yum update -y
+yum install -y yum-utils
+#install zfs repo
+yum install -y http://download.zfsonlinux.org/epel/zfs-release.el7_8.noarch.rpm
+#import gpg key
+rpm --import /etc/pki/rpm-gpg/RPM-GPG-KEY-zfsonlinux
+#install DKMS style packages for correct work ZFS
+yum install -y epel-release kernel-devel zfs
+#change ZFS repo
+yum-config-manager --disable zfs
+yum-config-manager --enable zfs-kmod
+yum install -y zfs
+#Add kernel module zfs
+modprobe zfs
+#install wget
+yum install -y wget
+```
+
+```
+cat Vagrantfile | grep box.vm.provision
+box.vm.provision "shell", path: "setup.sh"
+```
+</details>
 
 
 
