@@ -1885,6 +1885,276 @@ box.vm.provision "shell", path: "setup.sh"
 </details>
 
 
+## Lesson6 - NFS
+
+
+<details>
+Задача:
+
+- `vagrant up` должен поднимать 2 настроенных виртуальных машины (сервер NFS и клиента) без дополнительных ручных действий; - на сервере NFS должна быть подготовлена и экспортирована директория; 
+- в экспортированной директории должна быть поддиректория с именем __upload__ с правами на запись в неё; 
+- экспортированная директория должна автоматически монтироваться на клиенте при старте виртуальной машины (systemd, autofs или fstab -  любым способом); 
+- монтирование и работа NFS на клиенте должна быть организована с использованием NFSv3 по протоколу UDP; 
+- firewall должен быть включен и настроен как на клиенте, так и на сервере. 
+
+
+
+### Решение:
+
+Листинг скрипта автоматизации для клиента(nfsc_script.sh):
+
+```
+sudo su
+
+yum install -y nfs-utils
+
+
+systemctl enable firewalld --now
+systemctl status firewalld
+
+echo "192.168.50.10:/srv/share/ /mnt nfs _netdev,vers=3,proto=udp,noauto,x-systemd.automount 0 0" >> /etc/fstab
+
+
+systemctl daemon-reload
+
+systemctl restart remote-fs.target
+
+```
+
+опция _netdev даёт systemd понять, что файловая система зависит от сети.  
+
+Листинг скрипта автоматизации для сервера(nfss_script.sh):
+
+```
+#!/bin/bash
+sudo su
+yum install -y nfs-utils
+systemctl enable firewalld --now
+systemctl status firewalld
+
+
+firewall-cmd --add-service="nfs3" --permanent
+firewall-cmd --add-service="rpc-bind" --permanent
+firewall-cmd --add-service="mountd" --permanent
+firewall-cmd --add-port=111/udp --permanent
+firewall-cmd --add-port=2049/udp --permanent
+firewall-cmd --zone=public --add-service=nfs --permanent
+
+firewall-cmd --reload
+
+systemctl enable nfs-server
+systemctl start nfs-server
+
+mkdir -p /srv/share/upload
+chown -R nfsnobody:nfsnobody /srv/share
+chmod 0777 /srv/share/upload
+echo '/srv/share 192.168.50.11(rw,sync,root_squash,all_squash)' | tee /etc/exports.d/srv_share.exports
+exportfs -a
+systemctl restart nfs-server
+```
+
+all_squash — эта опция отвечает за то, что любые пользователи NFS-клиента будут считаться анонимными на NFS-сервере или же тем пользователеми NFS-сервера, чьи идентификаторы указаны в anonuid и anongid;  
+
+If no_root_squash is used, remote root users are able to change any file on the shared file system and leave trojaned applications for other users to inadvertently execute. 
+На стороне сервера мы можем решить, что мы не хотим доверять администратору клиента. Мы можем сделать это указав опцию root_squash в файле exports:
+Если пользователь с UID 0 на стороне клиента попытается получить доступ (чтение, запись, удаление), то файловый сервер выполнит подстановку UID пользователя `nobody' на сервере. Это означает, что администратор клиента не сможет получить доступ или изменять файлы, которые может изменять или иметь доступ к которым может только администратор сервера
+
+
+Листинг Vagrantfile:
+Увеличены значения памяти и процессора, чтобы быстрее поднималось.
+Убрана опция - virtualbox__intnet: "net1" с которой сеть у меня не поднималась.
+
+
+```
+# -*- mode: ruby -*-
+# vi: set ft=ruby :
+
+Vagrant.configure(2) do |config|
+  config.vm.box = "centos/7"
+
+  config.vm.provider "virtualbox" do |v|
+    v.memory = 2048
+    v.cpus = 2
+  end
+
+  config.vm.define "nfss" do |nfss|
+    nfss.vm.network "private_network", ip: "192.168.50.10"
+    nfss.vm.hostname = "nfss"
+    nfss.vm.provision "shell", path: "nfss_script.sh"
+  end
+
+  config.vm.define "nfsc" do |nfsc|
+    nfsc.vm.network "private_network", ip: "192.168.50.11"
+    nfsc.vm.hostname = "nfsc"
+    nfsc.vm.provision "shell", path: "nfsc_script.sh"
+  end
+```
+
+Проверяем, что firewall включен на клиенте:
+
+```
+[root@nfsc mnt]# firewall-cmd --list-all
+public (active)
+  target: default
+  icmp-block-inversion: no
+  interfaces: eth0 eth1
+  sources: 
+  services: dhcpv6-client ssh
+  ports: 
+  protocols: 
+  masquerade: no
+  forward-ports: 
+  source-ports: 
+  icmp-blocks: 
+  rich rules: 
+	
+[root@nfsc mnt]# systemctl status firewalld.service 
+● firewalld.service - firewalld - dynamic firewall daemon
+   Loaded: loaded (/usr/lib/systemd/system/firewalld.service; enabled; vendor preset: enabled)
+   Active: active (running) since Sun 2023-01-08 13:18:41 UTC; 49min ago
+     Docs: man:firewalld(1)
+ Main PID: 3408 (firewalld)
+   CGroup: /system.slice/firewalld.service
+           └─3408 /usr/bin/python2 -Es /usr/sbin/firewalld --nofork --nopid
+
+Jan 08 13:18:41 nfsc systemd[1]: Starting firewalld - dynamic firewall daemon...
+Jan 08 13:18:41 nfsc systemd[1]: Started firewalld - dynamic firewall daemon.
+Jan 08 13:18:41 nfsc firewalld[3408]: WARNING: AllowZoneDrifting is enabled. This is considered an insecure configuration option. It will be removed in a future release. Please consider disabling it now.
+
+```
+
+Проверяем, что firewall включен на сервере и соответствующие порты открыты:
+
+```
+[root@nfss share]# firewall-cmd --list-all
+public (active)
+  target: default
+  icmp-block-inversion: no
+  interfaces: eth0 eth1
+  sources: 
+  services: dhcpv6-client mountd nfs nfs3 rpc-bind ssh
+  ports: 111/udp 2049/udp
+  protocols: 
+  masquerade: no
+  forward-ports: 
+  source-ports: 
+  icmp-blocks: 
+  rich rules: 
+	
+[root@nfss share]# systemctl status firewalld.service 
+● firewalld.service - firewalld - dynamic firewall daemon
+   Loaded: loaded (/usr/lib/systemd/system/firewalld.service; enabled; vendor preset: enabled)
+   Active: active (running) since Sun 2023-01-08 13:17:28 UTC; 55min ago
+     Docs: man:firewalld(1)
+ Main PID: 3420 (firewalld)
+   CGroup: /system.slice/firewalld.service
+           └─3420 /usr/bin/python2 -Es /usr/sbin/firewalld --nofork --nopid
+
+Jan 08 13:17:28 nfss systemd[1]: Starting firewalld - dynamic firewall daemon...
+Jan 08 13:17:28 nfss systemd[1]: Started firewalld - dynamic firewall daemon.
+Jan 08 13:17:28 nfss firewalld[3420]: WARNING: AllowZoneDrifting is enabled. This is considered an insecure configuration option. It will be removed in a future release. Please consider disabling it now.
+Jan 08 13:17:31 nfss firewalld[3420]: WARNING: AllowZoneDrifting is enabled. This is considered an insecure configuration option. It will be removed in a future release. Please consider disabling it now.
+```
+
+Проверяем права на подмонтированную папку на клиенте:
+
+```
+[root@nfsc mnt]# ls -la /mnt
+total 0
+drwxr-xr-x.  3 nfsnobody nfsnobody  57 Jan  8 14:14 .
+dr-xr-xr-x. 18 root      root      255 Jan  8 13:18 ..
+-rw-r--r--.  1 nfsnobody nfsnobody   0 Jan  8 13:21 clienttest1
+-rw-r--r--.  1 root      root        0 Jan  8 14:14 README.txt
+drwxrwxrwx.  2 nfsnobody nfsnobody   6 Jan  8 13:17 upload
+
+
+[root@nfsc mnt]# mount | grep mnt
+systemd-1 on /mnt type autofs (rw,relatime,fd=50,pgrp=1,timeout=0,minproto=5,maxproto=5,direct,pipe_ino=26730)
+192.168.50.10:/srv/share/ on /mnt type nfs (rw,relatime,vers=3,rsize=32768,wsize=32768,namlen=255,hard,proto=udp,timeo=11,retrans=3,sec=sys,mountaddr=192.168.50.10,mountvers=3,mountport=20048,mountproto=udp,local_lock=none,addr=192.168.50.10,_netdev)
+```
+
+Проверяем разрешение на работу только с директорией:
+
+```
+[root@nfsc mnt]# echo 'kek' > /mnt/README.txt 
+bash: /mnt/README.txt: Permission denied
+[root@nfsc mnt]# echo 'kek' > /mnt/test.kek
+[root@nfsc mnt]# cat test.kek 
+kek
+```
+
+</details>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
