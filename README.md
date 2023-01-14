@@ -2945,6 +2945,20 @@ nginx-1.23.3-1.el7.ngx.x86_64.rpm                  11-Jan-2023 10:38            
 3.Добавить свой модуль в initrd  
 
 
+
+Вся домашка выполнялась на VM c Centos 8, т.к. 7ая версия сильно устарела
+
+```
+[mity@localhost ~]$ uname -a
+Linux localhost.localdomain 4.18.0-408.el8.x86_64 #1 SMP Mon Jul 18 17:42:52 UTC 2022 x86_64 x86_64 x86_64 GNU/Linux
+[mity@localhost ~]$ cat /etc/centos-release
+CentOS Stream release 8
+```
+
+
+
+
+
 #### 1.Сбросить пароль root 
 
 При загрузке системы нажимаем **e**, для получения доступа к меню загрузчика, на скриншотаж ниже приведены 3 различных варианта изменений в загрузчике.
@@ -2959,6 +2973,180 @@ nginx-1.23.3-1.el7.ngx.x86_64.rpm                  11-Jan-2023 10:38            
 ![Image 3](Lesson8/otboot3.jpg)
 
 ![Image 4](Lesson8/otboot4.jpg)
+
+
+
+#### 2.Переименовть VG с корневым томом (сделал более расширено с переименованием и VG и LV) 
+
+
+Смотрим текущие параметры Logical Volume и Volume Group
+
+```
+[root@localhost ~]# lvs
+  LV   VG Attr       LSize   Pool Origin Data%  Meta%  Move Log Cpy%Sync Convert
+  root cs -wi-ao---- <26.00g                                                    
+  swap cs -wi-ao----   3.00g                                                    
+[root@localhost ~]# 
+```
+
+Переименовываем:
+
+```
+[root@localhost ~]# sudo lvrename /dev/cs/root rootnew
+  Renamed "root" to "rootnew" in volume group "cs"
+```
+
+Проверяем:
+
+```
+[root@localhost ~]# lvs
+  LV      VG Attr       LSize   Pool Origin Data%  Meta%  Move Log Cpy%Sync Convert
+  rootnew cs -wi-ao---- <26.00g                                                    
+  swap    cs -wi-ao----   3.00g                                                    
+[root@localhost ~]# 
+```
+
+Листинги fstab и grub представлены с уже переименованными VG и LV.
+
+Правим fstab:
+
+
+```
+[root@localhost ~]# cat /etc/fstab 
+
+
+/dev/mapper/kek125-rootnew     /                       xfs     defaults        0 0
+UUID=4073aeb1-52b7-456f-84ba-0143bc398314 /boot                   xfs     defaults        0 0
+/dev/mapper/kek125-swap     none                    swap    defaults        0 0
+
+```
+
+Редактируем grub:
+
+```
+[root@localhost ~]# cat /etc/default/grub 
+GRUB_TIMEOUT=5
+GRUB_DISTRIBUTOR="$(sed 's, release .*$,,g' /etc/system-release)"
+GRUB_DEFAULT=saved
+GRUB_DISABLE_SUBMENU=true
+GRUB_TERMINAL_OUTPUT="console"
+GRUB_CMDLINE_LINUX="crashkernel=auto resume=/dev/mapper/kek125-swap rd.lvm.lv=kek125/rootnew rd.lvm.lv=kek125/swap rhgb quiet"
+GRUB_DISABLE_RECOVERY="true"
+GRUB_ENABLE_BLSCFG=true
+```
+
+Перезагружаемся и правим загрузчик:
+
+![Image 5](Lesson8/otboot5.jpg)
+
+
+Создаем новый grub.cfg
+
+```
+[root@localhost centos]# grub2-mkconfig -o /boot/efi/EFI/centos/grub.cfg
+```
+
+Смотрим текущие параметры Volume Group
+
+```
+[root@localhost ~]# vgs
+  VG #PV #LV #SN Attr   VSize   VFree
+  cs   1   2   0 wz--n- <29.00g    0 
+```
+
+
+Переименовываем:
+
+```
+[root@localhost ~]# vgrename cs kek125
+  Volume group "cs" successfully renamed to "kek125"
+```
+
+Проверяем:
+
+```
+[root@localhost ~]# lvs
+  LV      VG     Attr       LSize   Pool Origin Data%  Meta%  Move Log Cpy%Sync Convert
+  rootnew kek125 -wi-ao---- <26.00g                                                    
+  swap    kek125 -wi-ao----   3.00g
+```
+
+Редактируем grub и /etc/fstab:
+
+Перезагружаемся и правим загрузчик:
+
+![Image 6](Lesson8/otboot6.jpg)
+
+
+Создаем новый grub.cfg
+
+```
+[root@localhost centos]# grub2-mkconfig -o /boot/efi/EFI/centos/grub.cfg
+```
+
+Проверяем:
+
+```
+[root@localhost ~]# vgs
+  VG     #PV #LV #SN Attr   VSize   VFree
+  kek125   1   2   0 wz--n- <29.00g    0 
+```
+
+
+### 3.Добавить свой модуль в initrd 
+
+```
+[root@localhost ~]# cd /usr/lib/dracut/modules.d/
+[root@localhost modules.d]# mkdir 01logo && cd 01logo
+
+[root@localhost 01logo]# cat logo.sh 
+#!/bin/bash
+
+exec 0<>/dev/console 1<>/dev/console 2<>/dev/console
+cat <<'msgend'
+Hello! You are in dracut module!
+ ___________________
+< I'm dracut module >
+ -------------------
+   \
+    \
+        .--.
+       |o_o |
+       |:_/ |
+      //   \ \
+     (|     | )
+    /'\_   _/`\
+    \___)=(___/
+msgend
+sleep 10
+echo " continuing...."
+```
+```
+[root@localhost 01logo]# cat module-setup.sh 
+#!/bin/bash
+
+check() {
+    return 0
+}
+
+depends() {
+    return 0
+}
+
+install() {
+    inst_hook cleanup 00 "${moddir}/logo.sh"
+}
+```
+
+Проверяем:
+
+```
+[root@localhost 01logo]# lsinitrd -m /boot/initramfs-$(uname -r).img | grep logo
+logo
+```
+
+![Image 7](Lesson8/otboot7.jpg)
+
 
 </details>
 
