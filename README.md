@@ -2933,7 +2933,7 @@ nginx-1.23.3-1.el7.ngx.x86_64.rpm                  11-Jan-2023 10:38            
 </details>
 
 
-### Lesson8 - Загрузка системы
+## Lesson8 - Загрузка системы
 
 <details>
 
@@ -3151,7 +3151,7 @@ logo
 </details>
 
 
-### Lesson15 - Автоматизация администрирования. Ansible-1
+## Lesson15 - Автоматизация администрирования. Ansible-1
 
 <details>
 
