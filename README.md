@@ -3151,7 +3151,279 @@ logo
 </details>
 
 
+### Lesson15 - Автоматизация администрирования. Ansible-1
 
+<details>
+
+#### Задача
+Подготовить стенд на Vagrant как минимум с одним сервером. На этом  
+сервере используя Ansible необходимо развернуть nginx со следующими условиями:  
+- необходимо использоватþ модуль yum/apt
+- конфигурационные файлы должны быть взяты из шаблона jinja2 с переменными
+- после установки nginx должен быть в режиме enabled в systemd  
+- должен быть использован notify для старта nginx после установки  
+- сайт должен слушать на нестандартном порту - 8080, для этого использовать переменную в Ansible
+⭐ Сделать все это с использованием Ansible роли
+
+
+
+Базовые сведения и примеры работы с Ansible брал из своего репозитория, в котором тренируюсь работе с Ansible/Terraform/YandexCloud/Packer https://github.com/adastraaero/yandex-tf-ans-pck
+
+Правим Vagrantfile, чтобы машина собиралась быстрее, можно было проверить nginx используя проброс портов,добавляем провижнер для развертывания роли:
+
+```
+# -*- mode: ruby -*-
+# vim: set ft=ruby :
+
+MACHINES = {
+  :nginx => {
+        :box_name => "centos/7"
+  }
+}
+
+Vagrant.configure("2") do |config|
+
+  MACHINES.each do |boxname, boxconfig|
+
+      config.vm.define boxname do |box|
+
+          box.vm.box = boxconfig[:box_name]
+          box.vm.host_name = boxname.to_s
+
+          #box.vm.network "private_network", ip: "192.168.50.10"
+          box.vm.network "forwarded_port", guest: 8080, host: 8080
+          box.vm.provider :virtualbox do |vb|
+            vb.customize ["modifyvm", :id, "--memory", "2048"]
+            vb.customize ["modifyvm", :id, "--cpus", "2"]
+          end
+          
+          box.vm.provision "shell", inline: <<-SHELL
+            mkdir -p ~root/.ssh; cp ~vagrant/.ssh/auth* ~root/.ssh
+            sed -i '65s/PasswordAuthentication no/PasswordAuthentication yes/g' /etc/ssh/sshd_config
+            systemctl restart sshd
+          SHELL
+          
+          box.vm.provision "ansible" do |ansible|
+            ansible.playbook = "playbook/web.yml"
+            ansible.become = "true"
+          end
+
+      end
+  end
+end
+
+```
+
+Командой ansible-galaxy init roles/nginx создаём шаблон роли.
+
+```
+ tree roles/nginx/
+roles/nginx/
+├── defaults
+│   └── main.yml
+├── files
+├── handlers
+│   └── main.yml
+├── meta
+│   └── main.yml
+├── README.md
+├── tasks
+│   ├── main.yml
+│   └── redhat.yml
+├── templates
+│   ├── index.html.j2
+│   └── nginx.conf.j2
+├── tests
+│   ├── inventory
+│   └── test.yml
+└── vars
+    └── main.yml
+
+```
+
+Создаём плейбук для запуска роли:
+
+```
+cat playbook/web.yml 
+---
+  - name: Install Nginx
+    hosts: nginx
+    become: yes
+
+    roles:
+     - nginx
+
+```
+
+Используем данные из Ansible Facts в j2 шаблоне для index.html:
+
+```
+cat roles/nginx/templates/index.html.j2 
+Hey testing {{ ansible_os_family }}
+
+```
+
+Согласно ДЗ используем переменную (как вариант) для указания порта работы nginx:
+
+
+```
+cat roles/nginx/vars/main.yml 
+---
+# vars file for roles/nginx
+
+nginx_listen_port: 8080
+```
+
+```
+cat roles/nginx/templates/nginx.conf.j2 
+# {{ ansible_managed }}
+events {
+ worker_connections 1024;
+}
+http {
+ server {
+ listen {{ nginx_listen_port }} default_server;
+ server_name default_server;
+ root /usr/share/nginx/html;
+ location / {
+ }
+ }
+}
+```
+
+Запускаем и проверяем
+
+```
+sudo vagrant up
+Bringing machine 'nginx' up with 'virtualbox' provider...
+==> nginx: Importing base box 'centos/7'...
+==> nginx: Matching MAC address for NAT networking...
+==> nginx: Checking if box 'centos/7' version '2004.01' is up to date...
+==> nginx: Setting the name of the VM: Lesson15_nginx_1673797626257_21972
+==> nginx: Clearing any previously set network interfaces...
+==> nginx: Preparing network interfaces based on configuration...
+    nginx: Adapter 1: nat
+==> nginx: Forwarding ports...
+    nginx: 8080 (guest) => 8080 (host) (adapter 1)
+    nginx: 22 (guest) => 2222 (host) (adapter 1)
+==> nginx: Running 'pre-boot' VM customizations...
+==> nginx: Booting VM...
+==> nginx: Waiting for machine to boot. This may take a few minutes...
+    nginx: SSH address: 127.0.0.1:2222
+    nginx: SSH username: vagrant
+    nginx: SSH auth method: private key
+    nginx: 
+    nginx: Vagrant insecure key detected. Vagrant will automatically replace
+    nginx: this with a newly generated keypair for better security.
+    nginx: 
+    nginx: Inserting generated public key within guest...
+    nginx: Removing insecure key from the guest if it's present...
+    nginx: Key inserted! Disconnecting and reconnecting using new SSH key...
+==> nginx: Machine booted and ready!
+==> nginx: Checking for guest additions in VM...
+    nginx: No guest additions were detected on the base box for this VM! Guest
+    nginx: additions are required for forwarded ports, shared folders, host only
+    nginx: networking, and more. If SSH fails on this machine, please install
+    nginx: the guest additions and repackage the box to continue.
+    nginx: 
+    nginx: This is not an error message; everything may continue to work properly,
+    nginx: in which case you may ignore this message.
+==> nginx: Setting hostname...
+==> nginx: Rsyncing folder: /home/mity/Documents/OTUS_Linux_Prof/Lesson15/ => /vagrant
+==> nginx: Running provisioner: shell...
+    nginx: Running: inline script
+==> nginx: Running provisioner: ansible...
+    nginx: Running ansible-playbook...
+[DEPRECATION WARNING]: "include" is deprecated, use include_tasks/import_tasks 
+instead. This feature will be removed in version 2.16. Deprecation warnings can
+ be disabled by setting deprecation_warnings=False in ansible.cfg.
+
+PLAY [Install Nginx] ***********************************************************
+
+TASK [Gathering Facts] *********************************************************
+ok: [nginx]
+
+TASK [nginx : Install EPEL] ****************************************************
+changed: [nginx]
+
+TASK [nginx : Install Nginx package] *******************************************
+changed: [nginx]
+
+TASK [nginx : Enable service nginx, and not touch the state] *******************
+changed: [nginx]
+
+TASK [nginx : Change HTML] *****************************************************
+changed: [nginx]
+
+TASK [nginx : Create NGINX config file from template] **************************
+changed: [nginx]
+
+RUNNING HANDLER [nginx : restart nginx] ****************************************
+changed: [nginx]
+
+RUNNING HANDLER [nginx : reload nginx] *****************************************
+changed: [nginx]
+
+PLAY RECAP *********************************************************************
+nginx                      : ok=8    changed=7    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
+
+mity@ubuntu:~/Documents/OTUS_Linux_Prof/Lesson15$ curl http://localhost:8080
+Hey testing RedHat
+```
+
+Ответ от сервера nginx  на порту 8080 получен, роль установлена.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</details>
 
 
 
