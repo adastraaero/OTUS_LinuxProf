@@ -2093,7 +2093,7 @@ kek
 
 1) Создать свой RPM пакет.
 2) Создать свой репозиторий и разместить там ранее собраннýй RPM  
-⭐ реализовать дополнительно пакет через docke
+⭐ реализовать дополнительно пакет через docker
 
 Решение пунктов 1 и 2:
 
@@ -3150,6 +3150,487 @@ logo
 
 </details>
 
+
+## Lesson9 - Инициализация системы. Systemd.
+
+<details>
+
+### Задача
+
+1. Написать service, который будет раз в 30 секунд мониторить лог на предмет наличия ключевого слова (файл лога и ключевое слово должны задаваться в /etc/sysconfig).  
+2. Из репозитория epel установить spawn-fcgi и переписать init-скрипт на unit-файл (имя service должно называться так же: spawn-fcgi).  
+3. Дополнить unit-файл httpd (он же apache) возможностью запустить несколько инстансов сервера с разными конфигурационными файлами.  
+4. ⭐  Скачать демо-версию Atlassian Jira и переписать основной скрипт запуска на unit-файл.  
+ 
+
+### 1 Написать service, который будет раз в 30 секунд мониторить лог на предмет наличия ключевого слова (файл лога и ключевое слово должны задаваться в /etc/sysconfig).  
+
+Создаём конфигурацонный файл  для сервиса:
+
+
+```
+cat watchlog
+# Configuration file for my watchlog service
+# Place it to /etc/sysconfig
+# File and word in that file that we will be monit
+WORD="ALERT"
+LOG=/var/log/watchlog.log
+
+```
+
+Создаём файлы для заполнения лога:
+
+```
+cat alert_add.sh 
+#!/bin/bash
+/bin/echo `/bin/date "+%b %d %T"` ALERT >> /var/log/watchlog.log
+
+```
+
+```
+cat tail_add.sh
+#!/bin/bash
+/bin/tail /var/log/messages >> /var/log/watchlog.log
+
+```
+
+Создаём скрипт, который будет выполняться:
+
+```
+cat watchlog.sh
+#!/bin/bash
+WORD=$1
+LOG=$2
+DATE=`/bin/date`
+if grep $WORD $LOG &> /dev/null; then
+    logger "$DATE: I found word, Master!"
+	exit 0
+else
+    exit 0
+fi
+```
+
+Создаём unit-файл сервиса:
+
+```
+cat > /etc/systemd/system/watchlog.service
+[Unit]
+Description=My watchlog service
+
+[Service]
+Type=oneshot
+EnvironmentFile=/etc/sysconfig/watchlog
+ExecStart=/opt/watchlog.sh $WORD $LOG
+```
+
+
+Создаём unit-файл таймера:
+
+```
+cat > /etc/systemd/system/watchlog.timer
+[Unit]
+Description=Run watchlog script every 30 second
+
+[Timer]
+# Run every 30 second
+OnUnitActiveSec=30
+Unit=watchlog.service
+
+[Install]
+WantedBy=multi-user.target
+
+```
+
+Добавляем в Vagrantfile инструкции для:
+
+копирования файлов  
+```
+box.vm.provision "file", source: "/home/mity/Documents/OTUS_Linux_Prof/Lesson9/script/", destination: "/tmp/"
+```
+
+присвоения бита исполнения  
+```
+chmod +x /opt/*.sh
+```
+выполнения скриптов по заполнению лога(cron) 
+```
+(sudo crontab -l | 2>/dev/null; echo "*/3 * * * * /opt/tail_add.sh"; echo "*/5 * * * * /opt/alert_add.sh") | crontab -
+```
+
+перечитывания конфигурации 
+```
+sudo systemctl daemon-reload
+```
+
+запуска и загрузки сервиса 
+```
+sudo systemctl start watchlog.timer
+sudo systemctl start watchlog.service
+sudo systemctl enable watchlog.timer
+```
+
+Проверяем:
+
+```
+[root@Lesson9 ~]# tail -f /var/log/messages
+Jan 18 17:32:02 localhost systemd: Starting My watchlog service...
+Jan 18 17:32:02 localhost root: Wed Jan 18 17:32:02 UTC 2023: I found word, Master!
+Jan 18 17:32:02 localhost systemd: Started My watchlog service.
+Jan 18 17:30:49 localhost root: Wed Jan 18 17:30:49 UTC 2023: I found word, Master!
+```
+
+### 2. Из репозитория epel установить spawn-fcgi и переписать init-скрипт на unit-файл (имя service должно называться так же: spawn-fcgi).  
+
+Создаём файл spawn-fcgi.service:
+
+```
+[Unit]
+Description=Spawn-fcgi startup service by Otus
+After=network.target
+[Service]
+Type=simple
+PIDFile=/var/run/spawn-fcgi.pid
+EnvironmentFile=/etc/sysconfig/spawn-fcgi
+ExecStart=/usr/bin/spawn-fcgi -n $OPTIONS
+KillMode=process
+[Install]
+WantedBy=multi-user.target
+```
+
+Создаём отредактированный файл spawn-fcgi:
+
+```
+cat spawn-fcgi
+# You must set some working options before the "spawn-fcgi" service will work.
+# If SOCKET points to a file, then this file is cleaned up by the init script.
+#
+# See spawn-fcgi(1) for all possible options.
+#
+# Example :
+SOCKET=/var/run/php-fcgi.sock
+OPTIONS="-u apache -g apache -s $SOCKET -S -M 0600 -C 32 -F 1 -- /usr/bin/php-cgi"
+
+```
+Добавляем копирование созданных файлов в Vagrantfile и добавляем установку необходимых пакетов:
+(приведена конфигурация Vagrantfile с уже готовыми настройками на все 3 задачи).
+
+```
+cat Vagrantfile 
+# -*- mode: ruby -*-
+# vim: set ft=ruby :
+
+MACHINES = {
+  :"Lesson9" => {
+        :box_name => "centos/7",
+        :ip_addr => '192.168.11.101'
+  }
+}
+
+Vagrant.configure("2") do |config|
+
+  MACHINES.each do |boxname, boxconfig|
+
+      config.vm.define boxname do |box|
+
+          box.vm.box = boxconfig[:box_name]
+          box.vm.host_name = boxname.to_s
+
+          box.vm.network "private_network", ip: boxconfig[:ip_addr]
+
+          box.vm.provider :virtualbox do |vb|
+            vb.customize ["modifyvm", :id, "--cpus", "4"] 
+            vb.customize ["modifyvm", :id, "--memory", "4096"]
+          end
+          
+          box.vm.provision :shell, :inline => "setenforce 0", run: "always"
+          box.vm.provision "file", source: "/home/mity/Documents/OTUS_Linux_Prof/Lesson9/script/", destination: "/tmp/"
+          box.vm.provision "shell", inline: <<-SHELL
+            mkdir -p ~root/.ssh; cp ~vagrant/.ssh/auth* ~root/.ssh
+                        yum install epel-release -y
+                        yum install spawn-fcgi php php-cli mod_fcgid httpd -y
+                        cp /tmp/script/alert_add.sh /opt
+			cp /tmp/script/tail_add.sh /opt
+			cp /tmp/script/watchlog /etc/sysconfig
+			sudo cp /tmp/script/watchlog.service /etc/systemd/system
+			sudo cp -f /tmp/script/spawn-fcgi /etc/sysconfig/
+			sudo cp /tmp/script/spawn-fcgi.service /etc/systemd/system
+                        sudo cp /tmp/script/first.conf /etc/httpd/conf
+			sudo cp /tmp/script/httpd-first /etc/sysconfig
+                        sudo cp /tmp/script/httpd-second /etc/sysconfig
+                        sudo cp '/tmp/script/httpd@first.service' /etc/systemd/system
+			sudo cp '/tmp/script/httpd@second.service' /etc/systemd/system
+                        sudo cp /tmp/script/first.conf /etc/httpd/conf
+                        sudo cp /tmp/script/second.conf /etc/httpd/conf
+			cp /tmp/script/watchlog.sh /opt
+			sudo cp /tmp/script/watchlog.timer /etc/systemd/system
+                        chmod +x /opt/*.sh
+                        (sudo crontab -l | 2>/dev/null; echo "*/3 * * * * /opt/tail_add.sh"; echo "*/5 * * * * /opt/alert_add.sh") | crontab -
+                        sudo systemctl start watchlog.timer
+			sudo systemctl start watchlog.service
+			sudo systemctl enable watchlog.timer
+                        sudo systemctl start spawn-fcgi
+                        sudo systemctl daemon-reload
+			sudo systemctl start httpd@first
+			sudo systemctl start httpd@second
+
+
+          SHELL
+
+      end
+  end
+end
+
+```
+
+Проверяем:
+
+```
+[root@Lesson9 ~]# systemctl status spawn-fcgi
+● spawn-fcgi.service - Spawn-fcgi startup service by Otus
+   Loaded: loaded (/etc/systemd/system/spawn-fcgi.service; disabled; vendor preset: disabled)
+   Active: active (running) since Thu 2023-01-19 11:37:10 UTC; 17min ago
+ Main PID: 4740 (php-cgi)
+   CGroup: /system.slice/spawn-fcgi.service
+           ├─4740 /usr/bin/php-cgi
+           ├─4744 /usr/bin/php-cgi
+           ├─4745 /usr/bin/php-cgi
+           ├─4746 /usr/bin/php-cgi
+           ├─4747 /usr/bin/php-cgi
+           ├─4748 /usr/bin/php-cgi
+           ├─4749 /usr/bin/php-cgi
+           ├─4750 /usr/bin/php-cgi
+           ├─4751 /usr/bin/php-cgi
+           ├─4752 /usr/bin/php-cgi
+           ├─4753 /usr/bin/php-cgi
+           ├─4754 /usr/bin/php-cgi
+           ├─4755 /usr/bin/php-cgi
+           ├─4756 /usr/bin/php-cgi
+           ├─4757 /usr/bin/php-cgi
+           ├─4758 /usr/bin/php-cgi
+           ├─4759 /usr/bin/php-cgi
+           ├─4760 /usr/bin/php-cgi
+           ├─4761 /usr/bin/php-cgi
+           ├─4762 /usr/bin/php-cgi
+           ├─4763 /usr/bin/php-cgi
+           ├─4764 /usr/bin/php-cgi
+           ├─4765 /usr/bin/php-cgi
+           ├─4766 /usr/bin/php-cgi
+           ├─4767 /usr/bin/php-cgi
+           ├─4768 /usr/bin/php-cgi
+           ├─4769 /usr/bin/php-cgi
+           ├─4770 /usr/bin/php-cgi
+           ├─4771 /usr/bin/php-cgi
+           ├─4772 /usr/bin/php-cgi
+           ├─4773 /usr/bin/php-cgi
+           ├─4774 /usr/bin/php-cgi
+           └─4775 /usr/bin/php-cgi
+```
+
+
+### 3. Дополнить unit-файл httpd (он же apache) возможностью запустить несколько инстансов сервера с разными конфигурационными файлами.  
+
+Для запуска нескольких экземпляров сервиса будем использовать шаблон в конфигурации файла окружения (/usr/lib/systemd/system/httpd.service ):  
+Копируем файл из /usr/lib/systemd/system/, cp /usr/lib/systemd/system/httpd.service /etc/systemd/system, далее переименовываем mv /etc/systemd/system/httpd.service /etc/systemd/system/httpd@.service и приводим к виду:
+
+```
+ cat httpd@first.service 
+[Unit]
+Description=The Apache HTTP Server
+After=network.target remote-fs.target nss-lookup.target
+Documentation=man:httpd(8)
+Documentation=man:apachectl(8)
+
+[Service]
+Type=notify
+EnvironmentFile=/etc/sysconfig/httpd-%I
+ExecStart=/usr/sbin/httpd $OPTIONS -DFOREGROUND
+ExecReload=/usr/sbin/httpd $OPTIONS -k graceful
+ExecStop=/bin/kill -WINCH ${MAINPID}
+# We want systemd to give httpd some time to finish gracefully, but still want
+# it to kill httpd after TimeoutStopSec if something went wrong during the
+# graceful stop. Normally, Systemd sends SIGTERM signal right after the
+# ExecStop, which would kill httpd. We are sending useless SIGCONT here to give
+# httpd time to finish.
+KillSignal=SIGCONT
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target
+```
+
+```
+cat httpd@second.service 
+[Unit]
+Description=The Apache HTTP Server
+After=network.target remote-fs.target nss-lookup.target
+Documentation=man:httpd(8)
+Documentation=man:apachectl(8)
+
+[Service]
+Type=notify
+EnvironmentFile=/etc/sysconfig/httpd-%I
+ExecStart=/usr/sbin/httpd $OPTIONS -DFOREGROUND
+ExecReload=/usr/sbin/httpd $OPTIONS -k graceful
+ExecStop=/bin/kill -WINCH ${MAINPID}
+# We want systemd to give httpd some time to finish gracefully, but still want
+# it to kill httpd after TimeoutStopSec if something went wrong during the
+# graceful stop. Normally, Systemd sends SIGTERM signal right after the
+# ExecStop, which would kill httpd. We are sending useless SIGCONT here to give
+# httpd time to finish.
+KillSignal=SIGCONT
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target
+```
+
+В самом файле окружения (которых будет два) задается опция для запуска веб-сервера с необходимм конфигурационным файлом:
+
+```
+# /etc/sysconfig/httpd-first
+OPTIONS=-f conf/first.conf
+```
+
+```
+# /etc/sysconfig/httpd-second
+OPTIONS=-f conf/second.conf
+```
+
+Соответственно в директорию с конфигами httpd, кладём 2 конфига first.conf и second.conf:
+
+```
+grep -P "^PidFile|^Listen" first.conf 
+PidFile "/var/run/httpd-first.pid"
+Listen 80
+```
+
+```
+grep -P "^PidFile|^Listen" second.conf 
+PidFile "/var/run/httpd-second.pid"
+Listen 8080
+```
+
+Запускаем Vagrantfile и проверяем:
+
+```
+[root@Lesson9 ~]# systemctl status httpd@first.service
+● httpd@first.service - The Apache HTTP Server
+   Loaded: loaded (/etc/systemd/system/httpd@first.service; disabled; vendor preset: disabled)
+   Active: active (running) since Thu 2023-01-19 11:37:10 UTC; 5h 44min ago
+     Docs: man:httpd(8)
+           man:apachectl(8)
+ Main PID: 4791 (httpd)
+
+```
+ 
+```
+[root@Lesson9 ~]# systemctl status httpd@second.service
+● httpd@second.service - The Apache HTTP Server
+   Loaded: loaded (/etc/systemd/system/httpd@second.service; disabled; vendor preset: disabled)
+   Active: active (running) since Thu 2023-01-19 11:37:10 UTC; 5h 45min ago
+     Docs: man:httpd(8)
+           man:apachectl(8)
+ Main PID: 4801 (httpd)
+   Status: "Total requests: 0; Current requests/sec: 0; Current traffic:   0 B/sec"
+   CGroup: /system.slice/system-httpd.slice/httpd@second.service
+```
+
+```
+[root@Lesson9 ~]#  ss -tunlp | grep httpd
+tcp    LISTEN     0      128    [::]:8080               [::]:*                   users:(("httpd",pid=4807,fd=4),("httpd",pid=4806,fd=4),("httpd",pid=4805,fd=4),("httpd",pid=4804,fd=4),("httpd",pid=4803,fd=4),("httpd",pid=4802,fd=4),("httpd",pid=4801,fd=4))
+tcp    LISTEN     0      128    [::]:80                 [::]:*                   users:(("httpd",pid=4797,fd=4),("httpd",pid=4796,fd=4),("httpd",pid=4795,fd=4),("httpd",pid=4794,fd=4),("httpd",pid=4793,fd=4),("httpd",pid=4792,fd=4),("httpd",pid=4791,fd=4))
+```
+
+
+
+
+
+
+Отключаем SELINUX.
+
+Скачиваем архив JIRA.
+
+```
+[root@localhost Downloads]# wget https://product-downloads.atlassian.com/software/jira/downloads/atlassian-jira-software-9.4.1.tar.gz
+```
+
+Разархивируем:
+
+```
+tar -zxvf atlassian-jira-software-9.4.1.tar.gz -C /opt/
+```
+
+Создаём домашнюю директорию
+
+```
+mkdir /jirasoftware-home
+```
+
+Устанавливаем java, задаём переменные, конфигурируем jira:
+
+```
+yum install java-1.8.0-openjdk-devel
+
+export JIRA_HOME=/jirasoftware-home
+
+export JAVA_HOME=/usr/lib/jvm/java-1.8.0-openjdk-1.8.0.362.b01-0.3.ea.el8.x86_64/jre
+
+[root@localhost bin]# ./config.sh 
+```
+
+
+Создаём Unit файл:
+
+```
+touch /lib/systemd/system/jira.service
+chmod 664 /lib/systemd/system/jira.service
+```
+
+```
+[root@localhost bin]# cat /lib/systemd/system/jira.service
+[Unit] 
+Description=Atlassian Jira
+After=network.target
+
+[Service] 
+Type=forking
+User=root
+LimitNOFILE=20000
+ExecStart=/opt/atlassian-jira-software-9.4.1-standalone/bin/start-jira.sh
+ExecStop=/opt/atlassian-jira-software-9.4.1-standalone/bin/stop-jira.sh
+
+[Install] 
+WantedBy=multi-user.target 
+```
+
+Запускаем сервис и проверяем:
+
+```
+systemctl daemon-reload
+systemctl enable jira.service
+systemctl start jira.service
+systemctl status jira.service
+```
+
+```
+[root@localhost bin]# systemctl status jira.service
+● jira.service - Atlassian Jira
+   Loaded: loaded (/usr/lib/systemd/system/jira.service; enabled; vendor preset: disabled)
+   Active: active (running) since Thu 2023-01-19 14:14:09 EST; 7s ago
+  Process: 38035 ExecStart=/opt/atlassian-jira-software-9.4.1-standalone/bin/start-jira.sh (code=exited, status=0/SUCCESS)
+ Main PID: 38073 (java)
+    Tasks: 46 (limit: 23340)
+   Memory: 290.1M
+   CGroup: /system.slice/jira.service
+           └─38073 /usr/bin/java -Djava.util.logging.config.file=/opt/atlassian-jira-software-9.4.1-standalone/conf/logging.properties -Djava.util.logging.manager=org.apache.juli.ClassLoaderLogManager -Xms384m -Xmx204>
+
+Jan 19 14:14:09 localhost.localdomain start-jira.sh[38046]: [1B blob data]
+Jan 19 14:14:09 localhost.localdomain start-jira.sh[38046]:       Atlassian Jira
+Jan 19 14:14:09 localhost.localdomain start-jira.sh[38046]:       Version : 9.4.1
+```
+![Image 1](Lesson9/jira.jpg)
+
+</details>
 
 ## Lesson15 - Автоматизация администрирования. Ansible-1
 
