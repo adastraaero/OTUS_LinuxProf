@@ -3543,8 +3543,8 @@ tcp    LISTEN     0      128    [::]:80                 [::]:*                  
 
 
 
-
-
+### 4. ⭐  Скачать демо-версию Atlassian Jira и переписать основной скрипт запуска на unit-файл.  
+Данная часть выполнялась на ВМ с Centos 8 т.к. пришлось делать много отладки, а не через vagrant.
 
 Отключаем SELINUX.
 
@@ -3855,15 +3855,141 @@ Hey testing RedHat
 Ответ от сервера nginx  на порту 8080 получен, роль установлена.
 
 
+
+
+
+
+
+
+## Lesson17 - SELINUX
+
+
+<details>
+
+
+1. Запустить nginx на нестандартном порту 3-мя разными способами:  
+* переключатели setsebool;  
+* добавление нестандартного порта в имеющийся тип;  
+* формирование и установка модуля SELinux.  
+* К сдаче:  
+* README с описанием каждого решения (скриншоты и демонстрация приветствуются).  
+
+2. Обеспечить работоспособность приложения при включенном selinux.  
+* развернуть приложенный стенд https://github.com/mbfx/otus-linux-adm/tree/master/selinux_dns_problems;  
+* выяснить причину неработоспособности механизма обновления зоны (см. README);  
+* предложить решение (или решения) для данной проблемы;  
+* выбрать одно из решений для реализации, предварительно обосновав выбор;  
+* реализовать выбранное решение и продемонстрировать его работоспособность.  
+* К сдаче:
+* README с анализом причины неработоспособности, возможными способами решения и обоснованием выбора одного из них;  
+* исправленный стенд или демонстрация работоспособной системы скриншотами и описанием.  
+
+
+### Полезные данные для работы:
+
+Режим по умолчанию - /etc/sysconfig/selinux
+
+Файлы политик размещаются по пути - /etc/selinux/targeted/contexts/files  
+
+Лог аудита храниться в файле /var/log/audit/audit.log
+
+Просмотреть текущие правила - sesearch -A -s httpd_t
+
+Правильно задать контекст ветвей файловой системы необходимо через semanage
+
+```
+semanage fcontext -a -t httpd_sys_content_t "/html(/.*)?"
+
+```
+
+audit2why - преобразовывает сообщения аудита SELinux в описание причины отказа  в  доступе (audit2allow -w)  
+
+audit2allow  -  создаёт  правила  политики SELinux allow/dontaudit из журналов отклонённых операций.
+При создании модуля создается файл .te (Type Enforcement) и файл .pp (скомпилированный пакет политики).
+
+```
+audit2allow -M httpd_add --debug < /var/log/audit/audit.log
+```
+
+Включение созданного модуля 
+```
+semodule -i httpd_add.pp. Убедиться что модуль подключен - semodule -l | grep httpd_add
+```
+
+Удаление модуля
+```
+semodule -r httpd_add
+```
+
+
+#### Метод 1 (setsebool)
+
+Запускаем Vagrantfile и видим, что nginx не запустился.
+
+```
+linux: ● nginx.service - The nginx HTTP and reverse proxy server
+    selinux:    Loaded: loaded (/usr/lib/systemd/system/nginx.service; disabled; vendor preset: disabled)
+    selinux:    Active: failed (Result: exit-code) since Sat 2023-01-21 19:09:34 UTC; 9ms ago
+    selinux:   Process: 2787 ExecStartPre=/usr/sbin/nginx -t (code=exited, status=1/FAILURE)
+    selinux:   Process: 2786 ExecStartPre=/usr/bin/rm -f /run/nginx.pid (code=exited, status=0/SUCCESS)
+    selinux: 
+    selinux: Jan 21 19:09:34 selinux systemd[1]: Starting The nginx HTTP and reverse proxy server...
+    selinux: Jan 21 19:09:34 selinux nginx[2787]: nginx: the configuration file /etc/nginx/nginx.conf syntax is ok
+    selinux: Jan 21 19:09:34 selinux nginx[2787]: nginx: [emerg] bind() to 0.0.0.0:4881 failed (13: Permission denied)
+    selinux: Jan 21 19:09:34 selinux nginx[2787]: nginx: configuration file /etc/nginx/nginx.conf test failed
+    selinux: Jan 21 19:09:34 selinux systemd[1]: nginx.service: control process exited, code=exited status=1
+    selinux: Jan 21 19:09:34 selinux systemd[1]: Failed to start The nginx HTTP and reverse proxy server.
+    selinux: Jan 21 19:09:34 selinux systemd[1]: Unit nginx.service entered failed state.
+    selinux: Jan 21 19:09:34 selinux systemd[1]: nginx.service failed.
+```
+
+Запускаем audit2why  и анализируем лог:
+```
+[root@selinux ~]# audit2why < /var/log/audit/audit.log
+type=AVC msg=audit(1674328174.938:800): avc:  denied  { name_bind } for  pid=2787 comm="nginx" src=4881 scontext=system_u:system_r:httpd_t:s0 tcontext=system_u:object_r:unreserved_port_t:s0 tclass=tcp_socket permissive=0
+
+	Was caused by:
+	The boolean nis_enabled was set incorrectly. 
+	Description:
+	Allow nis to enabled
+
+	Allow access by executing:
+	# setsebool -P nis_enabled 1
+```
+
+Выполняем вышепредложенную рекомендацию
+```
+setsebool -P nis_enabled 1
+```
+
+Проверяем, что запустилось.
+```
+[root@selinux ~]# systemctl status nginx
+● nginx.service - The nginx HTTP and reverse proxy server
+   Loaded: loaded (/usr/lib/systemd/system/nginx.service; disabled; vendor preset: disabled)
+   Active: active (running) since Sat 2023-01-21 19:31:24 UTC; 1s ago
+  Process: 2958 ExecStart=/usr/sbin/nginx (code=exited, status=0/SUCCESS)
+  Process: 2956 ExecStartPre=/usr/sbin/nginx -t (code=exited, status=0/SUCCESS)
+  Process: 2955 ExecStartPre=/usr/bin/rm -f /run/nginx.pid (code=exited, status=0/SUCCESS)
+ Main PID: 2960 (nginx)
+   CGroup: /system.slice/nginx.service
+           ├─2960 nginx: master process /usr/sbin/nginx
+           └─2962 nginx: worker process
+```
+
+
+
+
+
+
+#### Метод 2 (setsebool)
+
+
+
+
+
+
 </details>
-
-
-
-
-
-
-
-
 
 
 
