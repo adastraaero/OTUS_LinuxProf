@@ -3854,6 +3854,8 @@ Hey testing RedHat
 
 Ответ от сервера nginx  на порту 8080 получен, роль установлена.
 
+</details>
+
 
 ## Lesson17 - SELINUX
 
