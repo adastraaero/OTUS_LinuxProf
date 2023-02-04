@@ -4395,6 +4395,139 @@ https://hub.docker.com/layers/adastraaero/otus/alpnginxnew/images/sha256-68e3854
 </details>
 
 
+## Lesson21 (Системы мониторинга)
+
+
+<details>
+
+### Задача:
+
+Настроить дашборд с 4-мя графиками:  
+* память   
+* процессор  
+* диск  
+* сеть  
+Настроить на одной из систем:
+zabbix (использовать screen (комплексный экран);
+prometheus - grafana.
+
+Данное ДЗ делал на ВМ UBUNTU на свежей версии zabbix.
+
+```
+mity@ubuntu:~$ lsb_release -a
+No LSB modules are available.
+Distributor ID:	Ubuntu
+Description:	Ubuntu 20.04.5 LTS
+Release:	20.04
+Codename:	focal
+```
+
+Установим версию MariaDB 10.5 т.к. более низкие не поддерживаются:
+
+```
+sudo apt update && sudo apt upgrade
+sudo apt -y install software-properties-common
+sudo apt-key adv --fetch-keys 'https://mariadb.org/mariadb_release_signing_key.asc'
+sudo add-apt-repository 'deb [arch=amd64] http://mariadb.mirror.globo.tech/repo/10.5/ubuntu focal main'
+sudo apt update
+sudo apt install mariadb-server mariadb-client
+sudo mysql_secure_installation
+```
+
+
+Установим Apache:
+```
+sudo apt install apache2
+sudo systemctl start apache2
+sudo systemctl enable apache2
+```
+
+Установим PHP и модули:
+
+```
+ sudo apt install php php-mbstring php-gd php-xml php-bcmath php-ldap php-mysql
+```
+
+Отредактируем конфиг:
+```
+sudo vim /etc/php/7.4/apache2/php.ini
+
+memory_limit 256M
+upload_max_filesize 16M
+post_max_size 16M
+max_execution_time 300
+max_input_time 300
+max_input_vars 10000
+date.timezone="Europe/Moscow"
+```
+
+Используем официальную инструкцию для нашей версии сборки - MariaDB/Apache/Ubuntu20.04
+https://www.zabbix.com/download?zabbix=6.2&os_distribution=ubuntu&os_version=20.04&components=server_frontend_agent&db=mysql&ws=apache
+
+Установка репозитория:
+```
+wget https://repo.zabbix.com/zabbix/6.2/ubuntu/pool/main/z/zabbix-release/zabbix-release_6.2-4%2Bubuntu20.04_all.deb
+dpkg -i zabbix-release_6.2-4+ubuntu20.04_all.deb
+apt update 
+```
+
+Установка сервера, фронта и агента:
+```
+apt install zabbix-server-mysql zabbix-frontend-php zabbix-apache-conf zabbix-sql-scripts zabbix-agent
+```
+
+Инициализация БД и установка схемы БД:
+
+```
+mysql -uroot -p
+password
+mysql> create database zabbix character set utf8mb4 collate utf8mb4_bin;
+mysql> create user zabbix@localhost identified by 'password';
+mysql> grant all privileges on zabbix.* to zabbix@localhost;
+mysql> set global log_bin_trust_function_creators = 1;
+mysql> quit; 
+
+zcat /usr/share/zabbix-sql-scripts/mysql/server.sql.gz | mysql --default-character-set=utf8mb4 -uzabbix -p zabbix 
+
+mysql -uroot -p
+password
+mysql> set global log_bin_trust_function_creators = 0;
+mysql> quit; 
+```
+
+Правим пароль:
+```
+vim /etc/zabbix/zabbix_server.conf 
+DBPassword=password
+```
+
+
+```
+systemctl restart zabbix-server zabbix-agent apache2
+systemctl enable zabbix-server zabbix-agent apache
+```
+
+Устанавливаем утилиты для тестирования нагрузки:
+
+```
+apt install iperf
+apt install stress
+apt install stress-ng
+```
+
+Настраиваем через GUI комплексный экран (название экрана совпадает с логином в гит) и задаем нагрузку:
+
+```
+iperf -c 192.168.83.140 -u -t 300 -b 100M
+stress-ng --vm 2 --vm-bytes 4G --timeout 60s
+stress -c 2 -i 1 -m 1 --vm-bytes 128M -t 10s
+```
+
+![Image 1](Lesson21/Otus.jpg)
+
+</details>
+
+
 
 ## Lesson26 - Резервное копирование
 
