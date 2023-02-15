@@ -1,0 +1,36 @@
+Return-Path: <root@ubuntu>
+X-Original-To: root@localhost
+Delivered-To: root@localhost
+Received: by ubuntu.localdomain (Postfix, from userid 0)
+	id 36C72120533; Mon, 13 Feb 2023 11:34:51 -0800 (PST)
+Subject: NGINX Log Info
+To: <root@localhost>
+User-Agent: mail (GNU Mailutils 3.14)
+Date: Mon, 13 Feb 2023 11:34:51 -0800
+Message-Id: <20230213193451.36C72120533@ubuntu.localdomain>
+From: root <root@ubuntu>
+X-IMAPbase: 1676375448                    9
+X-UID: 1
+Status: O
+
+Данные за период:14/Aug/2019:04:12:10+0300-15/Aug/2019:00:25:46+0300
+
+
+Часто запрашиваемые адреса:
+Количество запросов:116 URL:/wp-login.php
+Количество запросов:74 URL:/
+Количество запросов:57 URL:/xmlrpc.php
+Количество запросов:19 URL:/robots.txt
+Количество запросов:11 URL:/favicon.ico
+
+Частые ошибки:
+    498 200
+     95 301
+     51 404
+     18 400
+      3 500
+      2 499
+      1 405
+      1 403
+      1 304
+
