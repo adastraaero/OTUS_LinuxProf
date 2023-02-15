@@ -3692,10 +3692,10 @@ crontab -e
 4. [mail_msg] - Результат, который приходит на почту
 
 
-[checksc.sh]:https://github.com/staybox/otus_dz4/blob/master/check_log.sh
-[access-4560-644067.log]:https://github.com/staybox/otus_dz4/blob/master/access-4560-644067.log
-[lines]:https://github.com/staybox/otus_dz4/blob/master/lines
-[mail_msg]:https://github.com/staybox/otus_dz4/blob/master/mail_result.txt
+[checksc.sh]:https://github.com/adastraaero/OTUS_LinuxProf/blob/main/Lesson10/checksc.sh
+[access-4560-644067.log]:https://github.com/adastraaero/OTUS_LinuxProf/blob/main/Lesson10/access-4560-644067.log
+[lines]:https://github.com/adastraaero/OTUS_LinuxProf/blob/main/Lesson10/lines
+[mail_msg]:https://github.com/adastraaero/OTUS_LinuxProf/blob/main/Lesson10/mail_msg
 
 
 
