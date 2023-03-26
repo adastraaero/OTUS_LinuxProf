@@ -4844,9 +4844,7 @@ Mar 26 07:51:00 web nginx_error: 2023/03/26 07:51:00 [error] 3741#3741: *4 open(
 Mar 26 07:51:00 web nginx_error: 2023/03/26 07:51:00 [error] 3740#3740: *2 open() "/usr/share/nginx/html/favicon.ico" failed (2: No such file or directory), client: 192.168.50.1, server: _, request: "GET /favicon.ico HTTP/1.1", host: "192.168.50.10", referrer: "http://192.168.50.10/"
 
 ```
-
 ![Image 1](Lesson24/Ls26ng1.jpg)
-
 
 #### Настраиваем аудит 
 
@@ -4916,10 +4914,7 @@ type=PATH msg=audit(1679808003.308:1091): item=0 name="/etc/nginx/nginx.conf" in
 type=CWD msg=audit(1679808003.308:1091):  cwd="/usr/share/doc/HTML/img"
 type=SYSCALL msg=audit(1679808003.308:1091): arch=c000003e syscall=188 success=yes exit=0 a0=1d97810 a1=7f46dd134e2f a2=1de1a60 a3=1c items=1 ppid=3574 pid=3885 auid=1000 uid=0 gid=0 euid=0 suid=0 fsuid=0 egid=0 sgid=0 fsgid=0 tty=pts0 ses=4 comm="vim" exe="/usr/bin/vim" subj=unconfined_u:unconfined_r:unconfined_t:s0-s0:c0.c1023 key="web_config_changed"
 ```
-
-
 ![Image 2](Lesson24/Ls26ng2.png)
-
 #### Настройка пересылки логов аудита на удаленный сервер:
 
 Устанавливаем плагин:
@@ -4980,14 +4975,7 @@ node=web type=PROCTITLE msg=audit(1679808652.312:1110): proctitle=76696D002F6574
 ![Image 3](Lesson24/Ls26ng3.png)
 
 
-
 </details>
-
-
-
-
-
-
 
 
 ## Lesson26 - Резервное копирование
