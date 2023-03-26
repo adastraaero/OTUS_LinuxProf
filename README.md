@@ -4704,6 +4704,292 @@ end
 </details>
 
 
+## Lesson24- Сбор и анализ логов
+
+<details>
+
+### Задание:  
+1. В Vagrant разворачиваем 2 виртуальные машины web и log
+2. на web настраиваем nginx
+3. на log настраиваем центральный лог сервер на любой системе на выбор
+journald;
+rsyslog;
+elk.
+4. настраиваем аудит, следящий за изменением конфигов nginx 
+
+Все критичные логи с web должны собираться и локально и удаленно.
+Все логи с nginx должны уходить на удаленный сервер (локально только критичные).
+Логи аудита должны также уходить на удаленную систему.
+
+### Решение
+Листинг Vagrantfile 
+
+192.168.50.10 - nginx
+192.168.50.15 - log
+
+```
+# -*- mode: ruby -*-
+# vi: set ft=ruby :
+
+Vagrant.configure(2) do |config|
+  config.vm.box = "centos/7"
+
+  config.vm.provider "virtualbox" do |v|
+    v.memory = 2048
+    v.cpus = 2
+  end
+
+  config.vm.define "web" do |web|
+    web.vm.network "private_network", ip: "192.168.50.10"
+    web.vm.hostname = "web"
+    web.vm.provision "shell", path: "web.sh"
+  end
+
+  config.vm.define "log" do |log|
+    log.vm.network "private_network", ip: "192.168.50.15"
+    log.vm.hostname = "log"
+    log.vm.provision "shell", path: "log.sh"
+  end
+
+end
+```
+На log отредактируем /etc/rsyslog.conf .
+
+```
+# Provides UDP syslog reception
+$ModLoad imudp
+$UDPServerRun 514
+
+# Provides TCP syslog reception
+$ModLoad imtcp
+$InputTCPServerRun 514
+
+.
+.
+.
+.
+
+$template RemoteLogs,"/var/log/rsyslog/%HOSTNAME%/%PROGRAMNAME%.log"
+*.* ?RemoteLogs
+& ~
+
+```
+
+Перезапускаем syslog:
+```
+systemctl restart rsyslog
+```
+
+Проверяем открытые порты:
+
+```
+s -tulpn | grep 514
+udp    UNCONN     0      0         *:514                   *:*                   users:(("rsyslogd",pid=3444,fd=3))
+udp    UNCONN     0      0      [::]:514                [::]:*                   users:(("rsyslogd",pid=3444,fd=4))
+tcp    LISTEN     0      25        *:514                   *:*                   users:(("rsyslogd",pid=3444,fd=5))
+tcp    LISTEN     0      25     [::]:514                [::]:*                   users:(("rsyslogd",pid=3444,fd=6))
+```
+
+
+На web редактируем /etc/nginx/nginx.conf:
+
+```
+    access_log syslog:server=192.168.50.15:514,tag=nginx_access main;
+    error_log syslog:server=192.168.50.15:514,tag=nginx_error notice;
+    access_log syslog:server=192.168.50.15:514,tag=nginx_access,severity=info combined;
+
+```
+
+Проверяем и перезапускаем nginx:
+
+```
+nginx -t
+systemctl restart nginx
+
+```
+
+Удаляем картинку и проверяем сервер логов:
+
+```
+rm /usr/share/nginx/html/img/header-background.png
+```
+
+```
+[root@log ~]# cat /var/log/rsyslog/web/nginx_access.log 
+Mar 26 07:41:35 web nginx_access: 192.168.50.1 - - [26/Mar/2023:07:41:35 +0300] "GET / HTTP/1.1" 304 0 "-" "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/111.0" "-"
+Mar 26 07:41:35 web nginx_access: 192.168.50.1 - - [26/Mar/2023:07:41:35 +0300] "GET / HTTP/1.1" 304 0 "-" "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/111.0"
+Mar 26 07:41:36 web nginx_access: 192.168.50.1 - - [26/Mar/2023:07:41:36 +0300] "GET / HTTP/1.1" 304 0 "-" "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/111.0" "-"
+Mar 26 07:41:36 web nginx_access: 192.168.50.1 - - [26/Mar/2023:07:41:36 +0300] "GET / HTTP/1.1" 304 0 "-" "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/111.0"
+[root@log ~]# cat /var/log/rsyslog/web/nginx_access.log 
+Mar 26 07:41:35 web nginx_access: 192.168.50.1 - - [26/Mar/2023:07:41:35 +0300] "GET / HTTP/1.1" 304 0 "-" "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/111.0" "-"
+Mar 26 07:41:35 web nginx_access: 192.168.50.1 - - [26/Mar/2023:07:41:35 +0300] "GET / HTTP/1.1" 304 0 "-" "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/111.0"
+Mar 26 07:41:36 web nginx_access: 192.168.50.1 - - [26/Mar/2023:07:41:36 +0300] "GET / HTTP/1.1" 304 0 "-" "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/111.0" "-"
+Mar 26 07:41:36 web nginx_access: 192.168.50.1 - - [26/Mar/2023:07:41:36 +0300] "GET / HTTP/1.1" 304 0 "-" "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/111.0"
+Mar 26 07:43:16 web nginx_access: 192.168.50.1 - - [26/Mar/2023:07:43:16 +0300] "GET / HTTP/1.1" 304 0 "-" "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/111.0" "-"
+Mar 26 07:43:16 web nginx_access: 192.168.50.1 - - [26/Mar/2023:07:43:16 +0300] "GET / HTTP/1.1" 304 0 "-" "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/111.0"
+Mar 26 07:43:16 web nginx_access: 192.168.50.1 - - [26/Mar/2023:07:43:16 +0300] "GET / HTTP/1.1" 304 0 "-" "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/111.0" "-"
+Mar 26 07:43:16 web nginx_access: 192.168.50.1 - - [26/Mar/2023:07:43:16 +0300] "GET / HTTP/1.1" 304 0 "-" "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/111.0"
+Mar 26 07:43:17 web nginx_access: 192.168.50.1 - - [26/Mar/2023:07:43:17 +0300] "GET / HTTP/1.1" 304 0 "-" "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/111.0" "-"
+Mar 26 07:43:17 web nginx_access: 192.168.50.1 - - [26/Mar/2023:07:43:17 +0300] "GET / HTTP/1.1" 304 0 "-" "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/111.0"
+Mar 26 07:43:20 web nginx_access: 192.168.50.1 - - [26/Mar/2023:07:43:20 +0300] "GET / HTTP/1.1" 304 0 "-" "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/111.0" "-"
+Mar 26 07:43:20 web nginx_access: 192.168.50.1 - - [26/Mar/2023:07:43:20 +0300] "GET / HTTP/1.1" 304 0 "-" "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/111.0"
+Mar 26 07:43:41 web nginx_access: 192.168.50.1 - - [26/Mar/2023:07:43:41 +0300] "GET / HTTP/1.1" 304 0 "-" "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/111.0" "-"
+Mar 26 07:43:41 web nginx_access: 192.168.50.1 - - [26/Mar/2023:07:43:41 +0300] "GET / HTTP/1.1" 304 0 "-" "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/111.0"
+[root@log ~]# cat /var/log/rsyslog/web/nginx_error.log
+cat: /var/log/rsyslog/web/nginx_error.log: No such file or directory
+[root@log ~]# cat /var/log/rsyslog/web/nginx_error.log
+Mar 26 07:51:00 web nginx_error: 2023/03/26 07:51:00 [error] 3740#3740: *2 open() "/usr/share/nginx/html/img/centos-logo.png" failed (2: No such file or directory), client: 192.168.50.1, server: _, request: "GET /img/centos-logo.png HTTP/1.1", host: "192.168.50.10", referrer: "http://192.168.50.10/"
+Mar 26 07:51:00 web nginx_error: 2023/03/26 07:51:00 [error] 3741#3741: *3 open() "/usr/share/nginx/html/img/html-background.png" failed (2: No such file or directory), client: 192.168.50.1, server: _, request: "GET /img/html-background.png HTTP/1.1", host: "192.168.50.10", referrer: "http://192.168.50.10/"
+Mar 26 07:51:00 web nginx_error: 2023/03/26 07:51:00 [error] 3741#3741: *4 open() "/usr/share/nginx/html/img/header-background.png" failed (2: No such file or directory), client: 192.168.50.1, server: _, request: "GET /img/header-background.png HTTP/1.1", host: "192.168.50.10", referrer: "http://192.168.50.10/"
+Mar 26 07:51:00 web nginx_error: 2023/03/26 07:51:00 [error] 3740#3740: *2 open() "/usr/share/nginx/html/favicon.ico" failed (2: No such file or directory), client: 192.168.50.1, server: _, request: "GET /favicon.ico HTTP/1.1", host: "192.168.50.10", referrer: "http://192.168.50.10/"
+
+```
+
+![Image 1](Lesson24/Ls26ng1.png)
+
+
+#### Настраиваем аудит 
+
+```
+cat /etc/audit/rules.d/audit.rules
+## First rule - delete all
+-D
+
+## Increase the buffers to survive stress events.
+## Make this bigger for busy systems
+-b 8192
+
+## Set failure mode to syslog
+-f 1
+
+-w /etc/nginx/nginx.conf -p wa -k web_config_changed
+-w /etc/nginx/conf.d/ -p wa -k web_config_changed
+```
+
+Перезапускаем службу auditd:
+
+```
+ service auditd restart
+```
+Вносим изменения в nginx.conf:
+
+```
+search -f /etc/nginx/nginx.conf
+----
+time->Sun Mar 26 08:20:03 2023
+type=CONFIG_CHANGE msg=audit(1679808003.306:1085): auid=1000 ses=4 op=updated_rules path="/etc/nginx/nginx.conf" key="web_config_changed" list=4 res=1
+----
+time->Sun Mar 26 08:20:03 2023
+type=PROCTITLE msg=audit(1679808003.306:1086): proctitle=76696D002F6574632F6E67696E782F6E67696E782E636F6E66
+type=PATH msg=audit(1679808003.306:1086): item=3 name="/etc/nginx/nginx.conf~" inode=67557401 dev=08:01 mode=0100644 ouid=0 ogid=0 rdev=00:00 obj=system_u:object_r:httpd_config_t:s0 objtype=CREATE cap_fp=0000000000000000 cap_fi=0000000000000000 cap_fe=0 cap_fver=0
+type=PATH msg=audit(1679808003.306:1086): item=2 name="/etc/nginx/nginx.conf" inode=67557401 dev=08:01 mode=0100644 ouid=0 ogid=0 rdev=00:00 obj=system_u:object_r:httpd_config_t:s0 objtype=DELETE cap_fp=0000000000000000 cap_fi=0000000000000000 cap_fe=0 cap_fver=0
+type=PATH msg=audit(1679808003.306:1086): item=1 name="/etc/nginx/" inode=67557358 dev=08:01 mode=040755 ouid=0 ogid=0 rdev=00:00 obj=system_u:object_r:httpd_config_t:s0 objtype=PARENT cap_fp=0000000000000000 cap_fi=0000000000000000 cap_fe=0 cap_fver=0
+type=PATH msg=audit(1679808003.306:1086): item=0 name="/etc/nginx/" inode=67557358 dev=08:01 mode=040755 ouid=0 ogid=0 rdev=00:00 obj=system_u:object_r:httpd_config_t:s0 objtype=PARENT cap_fp=0000000000000000 cap_fi=0000000000000000 cap_fe=0 cap_fver=0
+type=CWD msg=audit(1679808003.306:1086):  cwd="/usr/share/doc/HTML/img"
+type=SYSCALL msg=audit(1679808003.306:1086): arch=c000003e syscall=82 success=yes exit=0 a0=1d97810 a1=1de1ab0 a2=fffffffffffffe80 a3=7ffc5e062420 items=4 ppid=3574 pid=3885 auid=1000 uid=0 gid=0 euid=0 suid=0 fsuid=0 egid=0 sgid=0 fsgid=0 tty=pts0 ses=4 comm="vim" exe="/usr/bin/vim" subj=unconfined_u:unconfined_r:unconfined_t:s0-s0:c0.c1023 key="web_config_changed"
+----
+time->Sun Mar 26 08:20:03 2023
+type=CONFIG_CHANGE msg=audit(1679808003.306:1087): auid=1000 ses=4 op=updated_rules path="/etc/nginx/nginx.conf" key="web_config_changed" list=4 res=1
+----
+time->Sun Mar 26 08:20:03 2023
+type=PROCTITLE msg=audit(1679808003.306:1088): proctitle=76696D002F6574632F6E67696E782F6E67696E782E636F6E66
+type=PATH msg=audit(1679808003.306:1088): item=1 name="/etc/nginx/nginx.conf" inode=67557402 dev=08:01 mode=0100644 ouid=0 ogid=0 rdev=00:00 obj=unconfined_u:object_r:httpd_config_t:s0 objtype=CREATE cap_fp=0000000000000000 cap_fi=0000000000000000 cap_fe=0 cap_fver=0
+type=PATH msg=audit(1679808003.306:1088): item=0 name="/etc/nginx/" inode=67557358 dev=08:01 mode=040755 ouid=0 ogid=0 rdev=00:00 obj=system_u:object_r:httpd_config_t:s0 objtype=PARENT cap_fp=0000000000000000 cap_fi=0000000000000000 cap_fe=0 cap_fver=0
+type=CWD msg=audit(1679808003.306:1088):  cwd="/usr/share/doc/HTML/img"
+type=SYSCALL msg=audit(1679808003.306:1088): arch=c000003e syscall=2 success=yes exit=3 a0=1d97810 a1=241 a2=1a4 a3=0 items=2 ppid=3574 pid=3885 auid=1000 uid=0 gid=0 euid=0 suid=0 fsuid=0 egid=0 sgid=0 fsgid=0 tty=pts0 ses=4 comm="vim" exe="/usr/bin/vim" subj=unconfined_u:unconfined_r:unconfined_t:s0-s0:c0.c1023 key="web_config_changed"
+----
+time->Sun Mar 26 08:20:03 2023
+type=PROCTITLE msg=audit(1679808003.308:1089): proctitle=76696D002F6574632F6E67696E782F6E67696E782E636F6E66
+type=PATH msg=audit(1679808003.308:1089): item=0 name="/etc/nginx/nginx.conf" inode=67557402 dev=08:01 mode=0100644 ouid=0 ogid=0 rdev=00:00 obj=unconfined_u:object_r:httpd_config_t:s0 objtype=NORMAL cap_fp=0000000000000000 cap_fi=0000000000000000 cap_fe=0 cap_fver=0
+type=CWD msg=audit(1679808003.308:1089):  cwd="/usr/share/doc/HTML/img"
+type=SYSCALL msg=audit(1679808003.308:1089): arch=c000003e syscall=188 success=yes exit=0 a0=1d97810 a1=7f46dd57ef6a a2=1dda9d0 a3=24 items=1 ppid=3574 pid=3885 auid=1000 uid=0 gid=0 euid=0 suid=0 fsuid=0 egid=0 sgid=0 fsgid=0 tty=pts0 ses=4 comm="vim" exe="/usr/bin/vim" subj=unconfined_u:unconfined_r:unconfined_t:s0-s0:c0.c1023 key="web_config_changed"
+----
+time->Sun Mar 26 08:20:03 2023
+type=PROCTITLE msg=audit(1679808003.308:1090): proctitle=76696D002F6574632F6E67696E782F6E67696E782E636F6E66
+type=PATH msg=audit(1679808003.308:1090): item=0 name="/etc/nginx/nginx.conf" inode=67557402 dev=08:01 mode=0100644 ouid=0 ogid=0 rdev=00:00 obj=system_u:object_r:httpd_config_t:s0 objtype=NORMAL cap_fp=0000000000000000 cap_fi=0000000000000000 cap_fe=0 cap_fver=0
+type=CWD msg=audit(1679808003.308:1090):  cwd="/usr/share/doc/HTML/img"
+type=SYSCALL msg=audit(1679808003.308:1090): arch=c000003e syscall=90 success=yes exit=0 a0=1d97810 a1=81a4 a2=7ffc5e063aa0 a3=24 items=1 ppid=3574 pid=3885 auid=1000 uid=0 gid=0 euid=0 suid=0 fsuid=0 egid=0 sgid=0 fsgid=0 tty=pts0 ses=4 comm="vim" exe="/usr/bin/vim" subj=unconfined_u:unconfined_r:unconfined_t:s0-s0:c0.c1023 key="web_config_changed"
+----
+time->Sun Mar 26 08:20:03 2023
+type=PROCTITLE msg=audit(1679808003.308:1091): proctitle=76696D002F6574632F6E67696E782F6E67696E782E636F6E66
+type=PATH msg=audit(1679808003.308:1091): item=0 name="/etc/nginx/nginx.conf" inode=67557402 dev=08:01 mode=0100644 ouid=0 ogid=0 rdev=00:00 obj=system_u:object_r:httpd_config_t:s0 objtype=NORMAL cap_fp=0000000000000000 cap_fi=0000000000000000 cap_fe=0 cap_fver=0
+type=CWD msg=audit(1679808003.308:1091):  cwd="/usr/share/doc/HTML/img"
+type=SYSCALL msg=audit(1679808003.308:1091): arch=c000003e syscall=188 success=yes exit=0 a0=1d97810 a1=7f46dd134e2f a2=1de1a60 a3=1c items=1 ppid=3574 pid=3885 auid=1000 uid=0 gid=0 euid=0 suid=0 fsuid=0 egid=0 sgid=0 fsgid=0 tty=pts0 ses=4 comm="vim" exe="/usr/bin/vim" subj=unconfined_u:unconfined_r:unconfined_t:s0-s0:c0.c1023 key="web_config_changed"
+```
+
+
+![Image 2](Lesson24/Ls26ng2.png)
+
+#### Настройка пересылки логов аудита на удаленный сервер:
+
+Устанавливаем плагин:
+
+```
+yum -y install audispd-plugins
+```
+Редактируем файлы на web(отредактированные файлы прилагаются в репозитории):
+
+/etc/audit/rules.d/audit.rules
+/etc/audisp/plugins.d/au-remote.conf
+/etc/audisp/audisp-remote.conf
+
+Редактируем файлы на log(отредактированные файлы прилагаются в репозитории):
+
+/etc/audit/auditd.conf
+
+меняем настройки в etc/nginx/nginx.conf и проверяем.
+
+```
+[root@log ~]# grep web /var/log/audit/audit.log 
+node=web type=DAEMON_START msg=audit(1679808535.716:6340): op=start ver=2.8.5 format=raw kernel=3.10.0-1127.el7.x86_64 auid=4294967295 pid=4020 uid=0 ses=4294967295 subj=system_u:system_r:auditd_t:s0 res=success
+node=web type=CONFIG_CHANGE msg=audit(1679808535.849:1097): auid=4294967295 ses=4294967295 subj=system_u:system_r:unconfined_service_t:s0 op=remove_rule key="web_config_changed" list=4 res=1
+node=web type=CONFIG_CHANGE msg=audit(1679808535.849:1098): auid=4294967295 ses=4294967295 subj=system_u:system_r:unconfined_service_t:s0 op=remove_rule key="web_config_changed" list=4 res=1
+node=web type=CONFIG_CHANGE msg=audit(1679808535.850:1099): audit_backlog_limit=8192 old=8192 auid=4294967295 ses=4294967295 subj=system_u:system_r:unconfined_service_t:s0 res=1
+node=web type=CONFIG_CHANGE msg=audit(1679808535.850:1100): audit_failure=1 old=1 auid=4294967295 ses=4294967295 subj=system_u:system_r:unconfined_service_t:s0 res=1
+node=web type=CONFIG_CHANGE msg=audit(1679808535.851:1101): auid=4294967295 ses=4294967295 subj=system_u:system_r:unconfined_service_t:s0 op=add_rule key="web_config_changed" list=4 res=1
+node=web type=CONFIG_CHANGE msg=audit(1679808535.856:1102): auid=4294967295 ses=4294967295 subj=system_u:system_r:unconfined_service_t:s0 op=add_rule key="web_config_changed" list=4 res=1
+node=web type=SERVICE_START msg=audit(1679808535.856:1103): pid=1 uid=0 auid=4294967295 ses=4294967295 subj=system_u:system_r:init_t:s0 msg='unit=auditd comm="systemd" exe="/usr/lib/systemd/systemd" hostname=? addr=? terminal=? res=success'
+node=web type=CONFIG_CHANGE msg=audit(1679808652.307:1104): auid=1000 ses=4 op=updated_rules path="/etc/nginx/nginx.conf" key="web_config_changed" list=4 res=1
+node=web type=SYSCALL msg=audit(1679808652.307:1105): arch=c000003e syscall=82 success=yes exit=0 a0=1f34810 a1=214f5e0 a2=fffffffffffffe80 a3=7ffd987e3ca0 items=4 ppid=3574 pid=4067 auid=1000 uid=0 gid=0 euid=0 suid=0 fsuid=0 egid=0 sgid=0 fsgid=0 tty=pts0 ses=4 comm="vim" exe="/usr/bin/vim" subj=unconfined_u:unconfined_r:unconfined_t:s0-s0:c0.c1023 key="web_config_changed"
+node=web type=CWD msg=audit(1679808652.307:1105):  cwd="/usr/share/doc/HTML/img"
+node=web type=PATH msg=audit(1679808652.307:1105): item=0 name="/etc/nginx/" inode=67557358 dev=08:01 mode=040755 ouid=0 ogid=0 rdev=00:00 obj=system_u:object_r:httpd_config_t:s0 objtype=PARENT cap_fp=0000000000000000 cap_fi=0000000000000000 cap_fe=0 cap_fver=0
+node=web type=PATH msg=audit(1679808652.307:1105): item=1 name="/etc/nginx/" inode=67557358 dev=08:01 mode=040755 ouid=0 ogid=0 rdev=00:00 obj=system_u:object_r:httpd_config_t:s0 objtype=PARENT cap_fp=0000000000000000 cap_fi=0000000000000000 cap_fe=0 cap_fver=0
+node=web type=PATH msg=audit(1679808652.307:1105): item=2 name="/etc/nginx/nginx.conf" inode=67557402 dev=08:01 mode=0100644 ouid=0 ogid=0 rdev=00:00 obj=system_u:object_r:httpd_config_t:s0 objtype=DELETE cap_fp=0000000000000000 cap_fi=0000000000000000 cap_fe=0 cap_fver=0
+node=web type=PATH msg=audit(1679808652.307:1105): item=3 name="/etc/nginx/nginx.conf~" inode=67557402 dev=08:01 mode=0100644 ouid=0 ogid=0 rdev=00:00 obj=system_u:object_r:httpd_config_t:s0 objtype=CREATE cap_fp=0000000000000000 cap_fi=0000000000000000 cap_fe=0 cap_fver=0
+node=web type=PROCTITLE msg=audit(1679808652.307:1105): proctitle=76696D002F6574632F6E67696E782F6E67696E782E636F6E66
+node=web type=CONFIG_CHANGE msg=audit(1679808652.307:1106): auid=1000 ses=4 op=updated_rules path="/etc/nginx/nginx.conf" key="web_config_changed" list=4 res=1
+node=web type=SYSCALL msg=audit(1679808652.307:1107): arch=c000003e syscall=2 success=yes exit=3 a0=1f34810 a1=241 a2=1a4 a3=0 items=2 ppid=3574 pid=4067 auid=1000 uid=0 gid=0 euid=0 suid=0 fsuid=0 egid=0 sgid=0 fsgid=0 tty=pts0 ses=4 comm="vim" exe="/usr/bin/vim" subj=unconfined_u:unconfined_r:unconfined_t:s0-s0:c0.c1023 key="web_config_changed"
+node=web type=CWD msg=audit(1679808652.307:1107):  cwd="/usr/share/doc/HTML/img"
+node=web type=PATH msg=audit(1679808652.307:1107): item=0 name="/etc/nginx/" inode=67557358 dev=08:01 mode=040755 ouid=0 ogid=0 rdev=00:00 obj=system_u:object_r:httpd_config_t:s0 objtype=PARENT cap_fp=0000000000000000 cap_fi=0000000000000000 cap_fe=0 cap_fver=0
+node=web type=PATH msg=audit(1679808652.307:1107): item=1 name="/etc/nginx/nginx.conf" inode=67525612 dev=08:01 mode=0100644 ouid=0 ogid=0 rdev=00:00 obj=unconfined_u:object_r:httpd_config_t:s0 objtype=CREATE cap_fp=0000000000000000 cap_fi=0000000000000000 cap_fe=0 cap_fver=0
+node=web type=PROCTITLE msg=audit(1679808652.307:1107): proctitle=76696D002F6574632F6E67696E782F6E67696E782E636F6E66
+node=web type=SYSCALL msg=audit(1679808652.312:1108): arch=c000003e syscall=188 success=yes exit=0 a0=1f34810 a1=7f0b491e6f6a a2=213e010 a3=24 items=1 ppid=3574 pid=4067 auid=1000 uid=0 gid=0 euid=0 suid=0 fsuid=0 egid=0 sgid=0 fsgid=0 tty=pts0 ses=4 comm="vim" exe="/usr/bin/vim" subj=unconfined_u:unconfined_r:unconfined_t:s0-s0:c0.c1023 key="web_config_changed"
+node=web type=CWD msg=audit(1679808652.312:1108):  cwd="/usr/share/doc/HTML/img"
+node=web type=PATH msg=audit(1679808652.312:1108): item=0 name="/etc/nginx/nginx.conf" inode=67525612 dev=08:01 mode=0100644 ouid=0 ogid=0 rdev=00:00 obj=unconfined_u:object_r:httpd_config_t:s0 objtype=NORMAL cap_fp=0000000000000000 cap_fi=0000000000000000 cap_fe=0 cap_fver=0
+node=web type=PROCTITLE msg=audit(1679808652.312:1108): proctitle=76696D002F6574632F6E67696E782F6E67696E782E636F6E66
+node=web type=SYSCALL msg=audit(1679808652.312:1109): arch=c000003e syscall=90 success=yes exit=0 a0=1f34810 a1=81a4 a2=7ffd987e5320 a3=24 items=1 ppid=3574 pid=4067 auid=1000 uid=0 gid=0 euid=0 suid=0 fsuid=0 egid=0 sgid=0 fsgid=0 tty=pts0 ses=4 comm="vim" exe="/usr/bin/vim" subj=unconfined_u:unconfined_r:unconfined_t:s0-s0:c0.c1023 key="web_config_changed"
+node=web type=CWD msg=audit(1679808652.312:1109):  cwd="/usr/share/doc/HTML/img"
+node=web type=PATH msg=audit(1679808652.312:1109): item=0 name="/etc/nginx/nginx.conf" inode=67525612 dev=08:01 mode=0100644 ouid=0 ogid=0 rdev=00:00 obj=system_u:object_r:httpd_config_t:s0 objtype=NORMAL cap_fp=0000000000000000 cap_fi=0000000000000000 cap_fe=0 cap_fver=0
+node=web type=PROCTITLE msg=audit(1679808652.312:1109): proctitle=76696D002F6574632F6E67696E782F6E67696E782E636F6E66
+node=web type=SYSCALL msg=audit(1679808652.312:1110): arch=c000003e syscall=188 success=yes exit=0 a0=1f34810 a1=7f0b48d9ce2f a2=212b4a0 a3=1c items=1 ppid=3574 pid=4067 auid=1000 uid=0 gid=0 euid=0 suid=0 fsuid=0 egid=0 sgid=0 fsgid=0 tty=pts0 ses=4 comm="vim" exe="/usr/bin/vim" subj=unconfined_u:unconfined_r:unconfined_t:s0-s0:c0.c1023 key="web_config_changed"
+node=web type=CWD msg=audit(1679808652.312:1110):  cwd="/usr/share/doc/HTML/img"
+node=web type=PATH msg=audit(1679808652.312:1110): item=0 name="/etc/nginx/nginx.conf" inode=67525612 dev=08:01 mode=0100644 ouid=0 ogid=0 rdev=00:00 obj=system_u:object_r:httpd_config_t:s0 objtype=NORMAL cap_fp=0000000000000000 cap_fi=0000000000000000 cap_fe=0 cap_fver=0
+node=web type=PROCTITLE msg=audit(1679808652.312:1110): proctitle=76696D002F6574632F6E67696E782F6E67696E782E636F6E66
+```
+
+![Image 3](Lesson24/Ls26ng3.png)
+
+
+
+</details>
+
+
+
+
+
+
+
+
 ## Lesson26 - Резервное копирование
 
 
