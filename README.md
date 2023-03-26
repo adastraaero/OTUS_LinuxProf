@@ -4845,7 +4845,7 @@ Mar 26 07:51:00 web nginx_error: 2023/03/26 07:51:00 [error] 3740#3740: *2 open(
 
 ```
 
-![Image 1](Lesson24/Ls26ng1.png)
+![Image 1](Lesson24/Ls26ng1.jpg)
 
 
 #### Настраиваем аудит 
