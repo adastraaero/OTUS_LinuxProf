@@ -5372,7 +5372,7 @@ centos-release-upstream  csh.cshrc     ethertypes		grub2.cfg    inittab	  locale
 ### Решение
 
 
-![Image 1](Lesson26Networkot/network.jpg)
+![Image 1](Lesson26Network/network.jpg)
 
 ![Image 1](Lesson26Network/network1.jpg)
 
