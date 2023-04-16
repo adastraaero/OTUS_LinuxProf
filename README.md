@@ -5477,12 +5477,14 @@ PING 192.168.2.2 (192.168.2.2) 56(84) bytes of data.
 ```
 ### Решение(c использованием Ansible)
 
+Репозиторий дз с использованием Ansible  https://github.com/adastraaero/OTUS_LinuxProf/tree/main/Lesson26NetworkANS
+
 
 ![Image 3](Lesson26NetworkANS/Server1.jpg)
 
 ![Image 4](Lesson26NetworkANS/Server2.jpg)
 
-![Image 5](Lesson26NetworkANS/CentralServer1.jpg)
+![Image 5](Lesson26NetworkANS/CentralServer.jpg)
 
 </details>
 
