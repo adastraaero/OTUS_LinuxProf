@@ -1,0 +1,93 @@
+<mxfile host="Electron" modified="2023-04-09T04:04:24.553Z" agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) draw.io/21.1.2 Chrome/106.0.5249.199 Electron/21.4.3 Safari/537.36" etag="R6D7WgKc01elRNiI83vH" version="21.1.2" type="device">
+  <diagram name="Страница 1" id="6cC4lpc5MjOm72EKyW37">
+    <mxGraphModel dx="2058" dy="1180" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="yMOtMFPXguLO616ZC11t-10" value="&lt;br style=&quot;font-size: 14px;&quot;&gt;&lt;span style=&quot;border-color: var(--border-color); color: rgb(0, 0, 0); font-family: Helvetica; font-style: normal; font-variant-ligatures: normal; font-variant-caps: normal; letter-spacing: normal; orphans: 2; text-align: center; text-indent: 0px; text-transform: none; widows: 2; word-spacing: 0px; -webkit-text-stroke-width: 0px; background-color: initial; text-decoration-thickness: initial; text-decoration-style: initial; text-decoration-color: initial; font-size: 14px;&quot;&gt;router net&lt;/span&gt;&lt;br style=&quot;font-size: 14px;&quot;&gt;" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;exitPerimeter=0;shape=link;strokeColor=default;strokeWidth=1;fontSize=14;fontStyle=1" parent="1" source="yMOtMFPXguLO616ZC11t-1" target="yMOtMFPXguLO616ZC11t-7" edge="1">
+          <mxGeometry x="0.0048" relative="1" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="yMOtMFPXguLO616ZC11t-1" value="inetRouter&lt;br style=&quot;font-size: 14px;&quot;&gt;192.168.255.1/30&lt;br style=&quot;font-size: 14px;&quot;&gt;" style="shape=mxgraph.cisco.routers.content_service_router;sketch=0;html=1;pointerEvents=1;dashed=0;fillColor=#036897;strokeColor=#ffffff;strokeWidth=2;verticalLabelPosition=bottom;verticalAlign=top;align=center;outlineConnect=0;fontSize=14;fontStyle=1" parent="1" vertex="1">
+          <mxGeometry x="360" y="280" width="78" height="53" as="geometry" />
+        </mxCell>
+        <mxCell id="OT8WQod0KPzdAPTZp5kp-4" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;entryPerimeter=0;shape=link;fontSize=14;fontStyle=1" parent="1" source="OT8WQod0KPzdAPTZp5kp-5" target="OT8WQod0KPzdAPTZp5kp-1" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="OT8WQod0KPzdAPTZp5kp-7" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;exitPerimeter=0;shape=link;fontSize=14;fontStyle=1" parent="1" source="yMOtMFPXguLO616ZC11t-6" target="yMOtMFPXguLO616ZC11t-7" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="yMOtMFPXguLO616ZC11t-6" value="office1Router" style="shape=mxgraph.cisco.routers.content_service_router;sketch=0;html=1;pointerEvents=1;dashed=0;fillColor=#036897;strokeColor=#ffffff;strokeWidth=2;verticalLabelPosition=bottom;verticalAlign=top;align=center;outlineConnect=0;fontSize=14;fontStyle=1" parent="1" vertex="1">
+          <mxGeometry x="70" y="520" width="78" height="53" as="geometry" />
+        </mxCell>
+        <mxCell id="Yhn8Kxt0V9bi2DxKdX8v-2" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;exitPerimeter=0;shape=link;fontSize=14;fontStyle=1" edge="1" parent="1" source="yMOtMFPXguLO616ZC11t-7" target="yMOtMFPXguLO616ZC11t-8">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="yMOtMFPXguLO616ZC11t-7" value="centralRouter" style="shape=mxgraph.cisco.routers.content_service_router;sketch=0;html=1;pointerEvents=1;dashed=0;fillColor=#036897;strokeColor=#ffffff;strokeWidth=2;verticalLabelPosition=bottom;verticalAlign=top;align=center;outlineConnect=0;fontSize=14;fontStyle=1" parent="1" vertex="1">
+          <mxGeometry x="350" y="530" width="78" height="53" as="geometry" />
+        </mxCell>
+        <mxCell id="Yhn8Kxt0V9bi2DxKdX8v-5" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;exitPerimeter=0;shape=link;" edge="1" parent="1" source="Yhn8Kxt0V9bi2DxKdX8v-6" target="Yhn8Kxt0V9bi2DxKdX8v-4">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="yMOtMFPXguLO616ZC11t-8" value="" style="shape=mxgraph.cisco.routers.content_service_router;sketch=0;html=1;pointerEvents=1;dashed=0;fillColor=#036897;strokeColor=#ffffff;strokeWidth=2;verticalLabelPosition=bottom;verticalAlign=top;align=center;outlineConnect=0;fontSize=14;fontStyle=1" parent="1" vertex="1">
+          <mxGeometry x="665.5" y="530" width="78" height="53" as="geometry" />
+        </mxCell>
+        <mxCell id="yMOtMFPXguLO616ZC11t-14" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;shape=link;fontSize=14;fontStyle=1" parent="1" source="yMOtMFPXguLO616ZC11t-15" target="yMOtMFPXguLO616ZC11t-13" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="yMOtMFPXguLO616ZC11t-12" value="&lt;div style=&quot;text-align: center; font-size: 14px;&quot;&gt;&lt;span style=&quot;background-color: initial; font-size: 14px;&quot;&gt;192.168.255.2/30 -router net&lt;/span&gt;&lt;/div&gt;&lt;span style=&quot;font-size: 14px;&quot;&gt;&lt;div style=&quot;text-align: center; font-size: 14px;&quot;&gt;&lt;span style=&quot;background-color: initial; font-size: 14px;&quot;&gt;192.168.0.1/28 dir-net&lt;/span&gt;&lt;/div&gt;&lt;div style=&quot;text-align: center; font-size: 14px;&quot;&gt;&lt;span style=&quot;background-color: initial; font-size: 14px;&quot;&gt;192.168.0.33/28 hw-net&lt;/span&gt;&lt;/div&gt;&lt;div style=&quot;text-align: center; font-size: 14px;&quot;&gt;&lt;span style=&quot;background-color: initial; font-size: 14px;&quot;&gt;192.168.0.65/26 mgmt-net&lt;/span&gt;&lt;/div&gt;&lt;/span&gt;" style="text;whiteSpace=wrap;html=1;fontSize=14;fontStyle=1" parent="1" vertex="1">
+          <mxGeometry x="290" y="600" width="191" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="yMOtMFPXguLO616ZC11t-13" value="centralServer&lt;br style=&quot;font-size: 14px;&quot;&gt;192.168.0.2/28&lt;br style=&quot;font-size: 14px;&quot;&gt;" style="shape=mxgraph.cisco.computers_and_peripherals.ibm_tower;sketch=0;html=1;pointerEvents=1;dashed=0;fillColor=#036897;strokeColor=#ffffff;strokeWidth=2;verticalLabelPosition=bottom;verticalAlign=top;align=center;outlineConnect=0;fontSize=14;fontStyle=1" parent="1" vertex="1">
+          <mxGeometry x="365" y="780" width="42" height="77" as="geometry" />
+        </mxCell>
+        <mxCell id="yMOtMFPXguLO616ZC11t-16" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;shape=link;fontSize=14;fontStyle=1" parent="1" source="yMOtMFPXguLO616ZC11t-12" target="yMOtMFPXguLO616ZC11t-15" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="386" y="680" as="sourcePoint" />
+            <mxPoint x="386" y="780" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="yMOtMFPXguLO616ZC11t-15" value="&lt;span style=&quot;border-color: var(--border-color); color: rgb(0, 0, 0); font-family: Helvetica; font-size: 14px; font-style: normal; font-variant-ligatures: normal; font-variant-caps: normal; letter-spacing: normal; orphans: 2; text-align: center; text-indent: 0px; text-transform: none; widows: 2; word-spacing: 0px; -webkit-text-stroke-width: 0px; background-color: initial; text-decoration-thickness: initial; text-decoration-style: initial; text-decoration-color: initial;&quot;&gt;dir-net&lt;/span&gt;" style="text;whiteSpace=wrap;html=1;fontSize=14;fontStyle=1" parent="1" vertex="1">
+          <mxGeometry x="360" y="710" width="50" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="yMOtMFPXguLO616ZC11t-17" value="&lt;div style=&quot;text-align: center; font-size: 14px;&quot;&gt;&lt;span style=&quot;font-size: 14px;&quot;&gt;&lt;span style=&quot;font-size: 14px;&quot;&gt;192.168.254.2/30 -router net&lt;/span&gt;&lt;/span&gt;&lt;/div&gt;&lt;div style=&quot;text-align: center; font-size: 14px;&quot;&gt;&lt;span style=&quot;font-size: 14px;&quot;&gt;&lt;span style=&quot;font-size: 14px;&quot;&gt;192.168.2.1/26 dev-office1-net&lt;/span&gt;&lt;/span&gt;&lt;/div&gt;&lt;div style=&quot;text-align: center; font-size: 14px;&quot;&gt;&lt;span style=&quot;font-size: 14px;&quot;&gt;&lt;span style=&quot;font-size: 14px;&quot;&gt;192.168.2.65/26 testsrv-office1-net&lt;/span&gt;&lt;/span&gt;&lt;/div&gt;&lt;div style=&quot;text-align: center; font-size: 14px;&quot;&gt;&lt;span style=&quot;font-size: 14px;&quot;&gt;&lt;span style=&quot;font-size: 14px;&quot;&gt;192.168.2.129/26 managers-net&lt;/span&gt;&lt;/span&gt;&lt;/div&gt;&lt;div style=&quot;text-align: center; font-size: 14px;&quot;&gt;&lt;span style=&quot;font-size: 14px;&quot;&gt;&lt;span style=&quot;font-size: 14px;&quot;&gt;192.168.2.193/26 hardw-office1-net&lt;/span&gt;&lt;/span&gt;&lt;/div&gt;" style="text;whiteSpace=wrap;html=1;fontSize=14;fontStyle=1" parent="1" vertex="1">
+          <mxGeometry x="30" y="600" width="230" height="110" as="geometry" />
+        </mxCell>
+        <mxCell id="OT8WQod0KPzdAPTZp5kp-1" value="office1Server&lt;br style=&quot;font-size: 14px;&quot;&gt;192.168.2.2/26" style="shape=mxgraph.cisco.computers_and_peripherals.ibm_tower;sketch=0;html=1;pointerEvents=1;dashed=0;fillColor=#036897;strokeColor=#ffffff;strokeWidth=2;verticalLabelPosition=bottom;verticalAlign=top;align=center;outlineConnect=0;fontSize=14;fontStyle=1" parent="1" vertex="1">
+          <mxGeometry x="88" y="830" width="42" height="77" as="geometry" />
+        </mxCell>
+        <mxCell id="OT8WQod0KPzdAPTZp5kp-6" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;entryPerimeter=0;shape=link;fontSize=14;fontStyle=1" parent="1" source="yMOtMFPXguLO616ZC11t-6" target="OT8WQod0KPzdAPTZp5kp-5" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="109" y="573" as="sourcePoint" />
+            <mxPoint x="109" y="830" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="OT8WQod0KPzdAPTZp5kp-5" value="&lt;div style=&quot;text-align: center; font-size: 14px;&quot;&gt;&lt;span style=&quot;background-color: initial; font-size: 14px;&quot;&gt;&lt;span style=&quot;font-size: 14px;&quot;&gt;dev-office1-net&lt;/span&gt;&lt;/span&gt;&lt;/div&gt;&lt;div style=&quot;text-align: center; font-size: 14px;&quot;&gt;&lt;span style=&quot;background-color: initial; font-size: 14px;&quot;&gt;&lt;span style=&quot;font-size: 14px;&quot;&gt;&lt;br style=&quot;font-size: 14px;&quot;&gt;&lt;/span&gt;&lt;/span&gt;&lt;/div&gt;" style="text;whiteSpace=wrap;html=1;fontSize=14;fontStyle=1" parent="1" vertex="1">
+          <mxGeometry x="80" y="720" width="60" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="OT8WQod0KPzdAPTZp5kp-8" value="&lt;span style=&quot;border-color: var(--border-color); color: rgb(0, 0, 0); font-family: Helvetica; font-size: 14px; font-style: normal; font-variant-ligatures: normal; font-variant-caps: normal; letter-spacing: normal; orphans: 2; text-align: center; text-indent: 0px; text-transform: none; widows: 2; word-spacing: 0px; -webkit-text-stroke-width: 0px; background-color: initial; text-decoration-thickness: initial; text-decoration-style: initial; text-decoration-color: initial;&quot;&gt;router-net&lt;/span&gt;" style="text;whiteSpace=wrap;html=1;fontSize=14;fontStyle=1" parent="1" vertex="1">
+          <mxGeometry x="200" y="500" width="80" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="Yhn8Kxt0V9bi2DxKdX8v-1" value="&lt;span class=&quot;pl-pds&quot; style=&quot;font-size: 14px;&quot;&gt;office2Router&lt;br style=&quot;font-size: 14px;&quot;&gt;192.168.253.2/30 - router-net&lt;br style=&quot;font-size: 14px;&quot;&gt;192.168.1.1/25 - dev-office2-net&lt;br style=&quot;font-size: 14px;&quot;&gt;192.168.1.129/26 -testsrv-office2-net&lt;br style=&quot;font-size: 14px;&quot;&gt;192.168.1.193/26 -hardw-office2-net&lt;br style=&quot;font-size: 14px;&quot;&gt;&lt;/span&gt;" style="text;whiteSpace=wrap;html=1;fontStyle=1;align=center;fontSize=14;" vertex="1" parent="1">
+          <mxGeometry x="590" y="585" width="229" height="125" as="geometry" />
+        </mxCell>
+        <mxCell id="Yhn8Kxt0V9bi2DxKdX8v-3" value="&lt;span style=&quot;border-color: var(--border-color); color: rgb(0, 0, 0); font-family: Helvetica; font-size: 14px; font-style: normal; font-variant-ligatures: normal; font-variant-caps: normal; letter-spacing: normal; orphans: 2; text-align: center; text-indent: 0px; text-transform: none; widows: 2; word-spacing: 0px; -webkit-text-stroke-width: 0px; background-color: initial; text-decoration-thickness: initial; text-decoration-style: initial; text-decoration-color: initial;&quot;&gt;router-net&lt;/span&gt;" style="text;whiteSpace=wrap;html=1;fontSize=14;fontStyle=1" vertex="1" parent="1">
+          <mxGeometry x="530" y="500" width="80" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="Yhn8Kxt0V9bi2DxKdX8v-4" value="office2Server&lt;br style=&quot;font-size: 14px;&quot;&gt;192.168.1.2/26" style="shape=mxgraph.cisco.computers_and_peripherals.ibm_tower;sketch=0;html=1;pointerEvents=1;dashed=0;fillColor=#036897;strokeColor=#ffffff;strokeWidth=2;verticalLabelPosition=bottom;verticalAlign=top;align=center;outlineConnect=0;fontSize=14;fontStyle=1" vertex="1" parent="1">
+          <mxGeometry x="683.5" y="857" width="42" height="77" as="geometry" />
+        </mxCell>
+        <mxCell id="Yhn8Kxt0V9bi2DxKdX8v-7" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;exitPerimeter=0;shape=link;" edge="1" parent="1" source="yMOtMFPXguLO616ZC11t-8" target="Yhn8Kxt0V9bi2DxKdX8v-6">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="705" y="583" as="sourcePoint" />
+            <mxPoint x="705" y="857" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="Yhn8Kxt0V9bi2DxKdX8v-6" value="&lt;div style=&quot;text-align: center; font-size: 14px;&quot;&gt;&lt;span style=&quot;background-color: initial; font-size: 14px;&quot;&gt;&lt;span style=&quot;font-size: 14px;&quot;&gt;dev-office2&lt;/span&gt;&lt;/span&gt;&lt;/div&gt;&lt;div style=&quot;text-align: center; font-size: 14px;&quot;&gt;&lt;span style=&quot;background-color: initial; font-size: 14px;&quot;&gt;&lt;span style=&quot;font-size: 14px;&quot;&gt;-net&lt;/span&gt;&lt;/span&gt;&lt;/div&gt;&lt;div style=&quot;text-align: center; font-size: 14px;&quot;&gt;&lt;span style=&quot;background-color: initial; font-size: 14px;&quot;&gt;&lt;span style=&quot;font-size: 14px;&quot;&gt;&lt;br style=&quot;font-size: 14px;&quot;&gt;&lt;/span&gt;&lt;/span&gt;&lt;/div&gt;" style="text;whiteSpace=wrap;html=1;fontSize=14;fontStyle=1" vertex="1" parent="1">
+          <mxGeometry x="674.5" y="750" width="60" height="40" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

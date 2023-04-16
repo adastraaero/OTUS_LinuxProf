@@ -5374,7 +5374,7 @@ centos-release-upstream  csh.cshrc     ethertypes		grub2.cfg    inittab	  locale
 
 ![Image 1](Lesson26Network/network.jpg)
 
-![Image 1](Lesson26Network/network1.jpg)
+![Image 2](Lesson26Network/network1.jpg)
 
 ### Практическая часть
 
@@ -5384,7 +5384,7 @@ centos-release-upstream  csh.cshrc     ethertypes		grub2.cfg    inittab	  locale
 * У всех новых серверов отключить дефолт на нат (eth0), который вагрант поднимает для связи
 
 
-### Решение
+### Решение(без Ansible)
 
 Проверяем:
 
@@ -5475,8 +5475,14 @@ PING 192.168.2.2 (192.168.2.2) 56(84) bytes of data.
 64 bytes from 192.168.2.2: icmp_seq=2 ttl=62 time=1.35 ms
 
 ```
+### Решение(c использованием Ansible)
 
 
+![Image 3](Lesson26NetworkANS/Server1.jpg)
+
+![Image 4](Lesson26NetworkANS/Server2.jpg)
+
+![Image 5](Lesson26NetworkANS/CentralServer1.jpg)
 
 </details>
 
