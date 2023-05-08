@@ -5756,7 +5756,11 @@ traceroute to google.com (108.177.14.101), 30 hops max, 60 byte packets
 
 Разворачиваем роутеры через Vagrant и Ansible и проверяем доступность сетей с разных хостов.
 
+![Image 1](Lesson32_OSPF/screen/r1proof.jpg)
 
+![Image 1](Lesson32_OSPF/screen/r2proof.jpg)
+
+![Image 1](Lesson32_OSPF/screen/r3proof.jpg)
 
 
 </details>
