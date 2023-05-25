@@ -1,0 +1,90 @@
+---
+- name: ConfigcentralRouter
+  hosts: all
+  become: true
+
+  tasks:
+    - name: Epel Install
+      yum:
+       name: epel-release
+       state: latest
+
+    - name: install Services
+      yum:
+        name:
+        - openvpn
+        - iperf3
+        - vim 
+    - name: Disable SELinux
+      ansible.posix.selinux:
+        state: disabled
+
+
+
+    - name: reboot
+      ansible.builtin.reboot:
+        reboot_timeout: 3600     
+
+
+
+
+- name: ConfigServer1
+  hosts: server
+  become: true
+
+  tasks:
+   
+    - name: copy key
+      copy:
+        src: static.key
+        dest: /etc/openvpn/static.key
+        owner: root
+        group: root
+        mode: 644   
+    
+    - name: copy config
+      copy:
+        src: server.conf
+        dest: /etc/openvpn/server.conf
+        owner: root
+        group: root
+        mode: 644   
+
+    - name: copy servive file
+      copy:
+        src: openvpn@.service
+        dest: /etc/systemd/system/openvpn@.service
+        owner: root
+        group: root
+        mode: 644   
+
+
+- name: ConfigClient
+  hosts: client
+  become: true
+
+  tasks:
+
+    - name: copy key
+      copy:
+        src: static.key
+        dest: /etc/openvpn/static.key
+        owner: root
+        group: root
+        mode: 644
+
+    - name: copy config
+      copy:
+        src: client.conf
+        dest: /etc/openvpn/server.conf
+        owner: root
+        group: root
+        mode: 644
+
+    - name: copy servive file
+      copy:
+        src: openvpn@.service
+        dest: /etc/systemd/system/openvpn@.service
+        owner: root
+        group: root
+        mode: 644

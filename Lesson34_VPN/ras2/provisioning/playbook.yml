@@ -1,0 +1,27 @@
+---
+- hosts: all
+  become: yes
+  tasks:
+  - name: set timezone
+    command: ln -sf /usr/share/zoneinfo/Europe/Moscow /etc/localtime
+
+  - name: install epel-release
+    yum: name=epel-release state=latest
+
+  - name: install packages
+    yum: name={{ item }} state=present
+    with_items:
+      - openvpn
+      - traceroute
+      - vim
+      - tcpdump
+      - iperf3
+
+  - name: copy server keys
+    copy: src=keys dest=/etc/openvpn owner=root group=root mode=0600
+
+  - name: copy openvpn configuration file
+    copy: src=ras.conf.j2 dest=/etc/openvpn/server.conf owner=root group=root mode=0644
+
+  - name: openvpn start
+    service: name=openvpn@server state=started enabled=yes
