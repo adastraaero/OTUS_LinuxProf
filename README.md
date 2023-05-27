@@ -6144,7 +6144,7 @@ testClient2 <-> testServer2
 
 ![Image 1](Lesson36_VLAN_LACP/Topology.jpg)
 
-Разворачиваем настроенную топологию через ansible+vagrant+jinja2 и настройки доступность:
+Разворачиваем настроенную топологию через ansible+vagrant+jinja2, проверяем настройки и доступность:
 
 #### Client1
 ```
